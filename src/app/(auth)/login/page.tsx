@@ -245,6 +245,7 @@ function LoginForm() {
                       id="email"
                       name="email"
                       type="email"
+                      autoComplete="email"
                       placeholder="name@example.com"
                       value={email}
                       onChange={handleEmailChange}
@@ -280,6 +281,7 @@ function LoginForm() {
                       id="password"
                       name="password"
                       type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
                       placeholder="••••••••"
                       value={password}
                       onChange={handlePasswordChange}

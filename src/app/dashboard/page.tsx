@@ -1,25 +1,40 @@
-import { auth } from "@/lib/auth/config";
-import { redirect } from "next/navigation";
 import { FileText, GitBranch, Bot, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { count, eq } from "drizzle-orm";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { requireCurrentOrganization } from "@/lib/auth/organization";
+import { agents, forms, workflows } from "@/lib/db/schema";
+import { db } from "@/lib/db/client";
+
+export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const session = await auth();
-
-  if (!session) {
-    redirect("/login");
-  }
+  const current = await requireCurrentOrganization();
+  const [formsCount, workflowsCount, agentsCount] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(forms)
+      .where(eq(forms.orgId, current.organization.id)),
+    db
+      .select({ value: count() })
+      .from(workflows)
+      .where(eq(workflows.orgId, current.organization.id)),
+    db
+      .select({ value: count() })
+      .from(agents)
+      .where(eq(agents.orgId, current.organization.id)),
+  ]);
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-8">
       <div>
         <h2 className="text-3xl font-bold tracking-tight">
-          Welcome back, {session.user?.name}
+          Welcome back, {current.userEmail}
         </h2>
         <p className="text-muted-foreground">
-          Here&apos;s what&apos;s happening with your projects.
+          Here&apos;s what&apos;s happening in {current.organization.name}.
         </p>
       </div>
 
@@ -30,9 +45,9 @@ export default async function DashboardPage() {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{formsCount[0]?.value ?? 0}</div>
             <p className="text-xs text-muted-foreground">
-              +0 from last month
+              Total forms in this organization
             </p>
           </CardContent>
         </Card>
@@ -43,9 +58,9 @@ export default async function DashboardPage() {
             <GitBranch className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{workflowsCount[0]?.value ?? 0}</div>
             <p className="text-xs text-muted-foreground">
-              +0 from last month
+              Draft and enabled workflows
             </p>
           </CardContent>
         </Card>
@@ -56,9 +71,9 @@ export default async function DashboardPage() {
             <Bot className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{agentsCount[0]?.value ?? 0}</div>
             <p className="text-xs text-muted-foreground">
-              +0 from last month
+              Agent definitions saved
             </p>
           </CardContent>
         </Card>

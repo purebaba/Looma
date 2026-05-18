@@ -248,6 +248,31 @@ export const organizationsRelations = relations(
   })
 );
 
+export const organizationMembersRelations = relations(
+  organizationMembers,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [organizationMembers.orgId],
+      references: [organizations.id],
+    }),
+    user: one(users, {
+      fields: [organizationMembers.userId],
+      references: [users.id],
+    }),
+  })
+);
+
+export const formSubmissionsRelations = relations(formSubmissions, ({ one }) => ({
+  form: one(forms, {
+    fields: [formSubmissions.formId],
+    references: [forms.id],
+  }),
+  submitter: one(users, {
+    fields: [formSubmissions.submittedBy],
+    references: [users.id],
+  }),
+}));
+
 export const formsRelations = relations(forms, ({ one, many }) => ({
   organization: one(organizations, {
     fields: [forms.orgId],

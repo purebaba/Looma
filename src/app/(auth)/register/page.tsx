@@ -65,6 +65,7 @@ export default function RegisterPage() {
                 id="name"
                 name="name"
                 type="text"
+                autoComplete="name"
                 placeholder="John Doe"
                 required
               />
@@ -75,6 +76,7 @@ export default function RegisterPage() {
                 id="email"
                 name="email"
                 type="email"
+                autoComplete="email"
                 placeholder="m@example.com"
                 required
               />
@@ -85,6 +87,7 @@ export default function RegisterPage() {
                 id="password"
                 name="password"
                 type="password"
+                autoComplete="new-password"
                 minLength={8}
                 required
               />

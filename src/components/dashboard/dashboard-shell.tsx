@@ -12,8 +12,9 @@ import {
   Settings,
   Users,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
@@ -32,63 +33,66 @@ const navigation = [
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function isActiveRoute(pathname: string, href: string) {
+  if (href === "/dashboard") {
+    return pathname === href;
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const activeItem =
+    navigation.find((item) => pathname === item.href) ||
+    navigation.find((item) => isActiveRoute(pathname, item.href));
 
   return (
-    <div className="min-h-screen flex">
-      <aside className="w-64 border-r bg-card flex flex-col">
-        <div className="p-4 border-b">
+    <div className="flex min-h-screen">
+      <aside className="flex w-64 flex-col border-r bg-card">
+        <div className="border-b p-4">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <Bot className="h-8 w-8 text-primary" />
+            <Bot className="size-8 text-primary" />
             <span className="text-xl font-bold">Looma</span>
           </Link>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex flex-1 flex-col gap-1 p-4">
           {navigation.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = isActiveRoute(pathname, item.href);
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <item.icon className="h-5 w-5" />
+                <item.icon className="size-5" />
                 {item.name}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t">
+        <div className="border-t p-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-3 h-auto py-2"
-              >
-                <Avatar className="h-8 w-8">
+              <Button variant="ghost" className="h-auto w-full justify-start gap-3 py-2">
+                <Avatar className="size-8">
                   <AvatarImage src={session?.user?.image || ""} />
                   <AvatarFallback>
-                    {session?.user?.name?.[0] || "U"}
+                    {session?.user?.name?.[0] || session?.user?.email?.[0] || "U"}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col items-start text-left">
-                  <span className="text-sm font-medium">
+                <div className="flex min-w-0 flex-col items-start text-left">
+                  <span className="max-w-40 truncate text-sm font-medium">
                     {session?.user?.name || "User"}
                   </span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="max-w-40 truncate text-xs text-muted-foreground">
                     {session?.user?.email}
                   </span>
                 </div>
@@ -103,7 +107,7 @@ export default function DashboardLayout({
                 onClick={() => signOut({ callbackUrl: "/" })}
                 className="text-destructive"
               >
-                <LogOut className="mr-2 h-4 w-4" />
+                <LogOut className="mr-2 size-4" />
                 Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -111,15 +115,11 @@ export default function DashboardLayout({
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col">
+      <main className="flex flex-1 flex-col">
         <header className="border-b bg-card px-6 py-4">
-          <h1 className="text-2xl font-semibold">
-            {navigation.find((item) => item.href === pathname)?.name || "Dashboard"}
-          </h1>
+          <h1 className="text-2xl font-semibold">{activeItem?.name || "Dashboard"}</h1>
         </header>
-        <div className="flex-1 p-6 overflow-auto">
-          {children}
-        </div>
+        <div className="flex-1 overflow-auto p-6">{children}</div>
       </main>
     </div>
   );

@@ -110,7 +110,7 @@ export function validateField(
       case "pattern":
         if (
           typeof value === "string" &&
-          !(rule.value as string) &&
+          Boolean(rule.value) &&
           !new RegExp(rule.value as string).test(value)
         ) {
           return { valid: false, message: rule.message };

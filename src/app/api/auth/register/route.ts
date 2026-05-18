@@ -7,16 +7,24 @@ import { eq } from "drizzle-orm";
 export async function POST(request: Request) {
   try {
     const { name, email, password } = await request.json();
+    const normalizedEmail = String(email || "").toLowerCase().trim();
 
-    if (!name || !email || !password) {
+    if (!name || !normalizedEmail || !password) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: "Password must be at least 8 characters" },
+        { status: 400 }
+      );
+    }
+
     const existingUser = await db.query.users.findFirst({
-      where: eq(users.email, email),
+      where: eq(users.email, normalizedEmail),
     });
 
     if (existingUser) {
@@ -31,8 +39,8 @@ export async function POST(request: Request) {
     const [newUser] = await db
       .insert(users)
       .values({
-        name,
-        email,
+        name: String(name).trim(),
+        email: normalizedEmail,
         passwordHash,
       })
       .returning();

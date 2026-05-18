@@ -135,6 +135,7 @@ npx shadcn@latest add button card input
 ## Documentation
 
 - [Specification](./SPEC.md) - Detailed feature specifications
+- [Project Plan](./docs/PROJECT_PLAN.md) - Product architecture and phased implementation plan
 - [Roadmap](./docs/ROADMAP.md) - Project roadmap and execution plan
 
 ## License
