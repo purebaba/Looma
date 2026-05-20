@@ -36,7 +36,7 @@ export default async function WorkflowsPage() {
         description="Automate form and business events with visual workflows."
         actions={
           <Button asChild>
-            <Link href="/dashboard/workflows/new">
+            <Link href="/studio/workflows/new">
               <Plus className="size-4" />
               New workflow
             </Link>
@@ -50,7 +50,7 @@ export default async function WorkflowsPage() {
           description="Create a workflow shell and add runtime nodes as the engine evolves."
           action={
             <Button asChild>
-              <Link href="/dashboard/workflows/new">Create workflow</Link>
+              <Link href="/studio/workflows/new">Create workflow</Link>
             </Button>
           }
         />

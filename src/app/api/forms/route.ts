@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 
 import { routeError } from "@/lib/api/responses";
 import { requireResourceAccess } from "@/lib/auth/organization";
+import { ensureDefaultApp, ensureEntityForForm } from "@/lib/data/modeling";
 import { db } from "@/lib/db/client";
-import { formSubmissions, forms } from "@/lib/db/schema";
+import { apps, entities, formSubmissions, forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
 
 export async function GET() {
@@ -22,7 +23,16 @@ export async function GET() {
           .select({ value: count() })
           .from(formSubmissions)
           .where(eq(formSubmissions.formId, form.id));
-        return { ...form, submissionCount: submissionCount?.value ?? 0 };
+        const entity = form.entityId
+          ? await db.query.entities.findFirst({
+              where: eq(entities.id, form.entityId),
+            })
+          : null;
+        return {
+          ...form,
+          entityName: entity?.name ?? null,
+          submissionCount: submissionCount?.value ?? 0,
+        };
       })
     );
 
@@ -42,15 +52,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
+    const requestedApp = body.appId
+      ? await db.query.apps.findFirst({
+          where: and(
+            eq(apps.id, String(body.appId)),
+            eq(apps.orgId, current.organization.id)
+          ),
+        })
+      : null;
+    const app = requestedApp || (await ensureDefaultApp({
+      orgId: current.organization.id,
+      userId: current.userId,
+    }));
     const schema = (body.schema || { fields: [] }) as FormSchema;
+    const model = await ensureEntityForForm({
+      orgId: current.organization.id,
+      appId: app.id,
+      userId: current.userId,
+      formName: name,
+      entityId: body.entityId || null,
+      schema,
+    });
     const [form] = await db
       .insert(forms)
       .values({
         orgId: current.organization.id,
+        appId: app.id,
+        entityId: model.entity.id,
         createdBy: current.userId,
         name,
         description: body.description || null,
-        schema,
+        schema: model.schema,
       })
       .returning();
 

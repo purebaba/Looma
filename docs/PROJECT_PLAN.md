@@ -43,7 +43,7 @@ Studio 面向管理员、实施人员和业务 Owner，用于设计和发布业�
   /settings
 ```
 
-当前项目仍使用 `/dashboard`。短期可以继续保留，等数据建模模块稳定后再迁移或别名到 `/studio`。
+当前管理端使用 `/studio`。旧 `/dashboard/*` 仅作为兼容入口重定向到对应 Studio 页面。
 
 ### 2.2 App 使用界面
 
@@ -76,7 +76,7 @@ Data Model
   Entity / Field / Relation / Record
         ↓
 Interface Model
-  Form / View / Page / Dashboard
+  Form / View / Page / Studio
         ↓
 Logic Model
   Trigger / Workflow / Action / Event
@@ -116,8 +116,15 @@ Agent Model
 - Form：创建或编辑记录的输入界面。
 - Table View：记录列表。
 - Detail Page：单条记录详情。
-- Dashboard：统计与入口。
+- Studio：统计与入口。
 - Page：可组合业务页面。
+
+硬规则：
+
+- Form 属于 Interface/View 层，不是业务数据源。
+- Entity 拥有 Records，Form 只负责创建或编辑 Records。
+- Submission 是通过 Form 产生的一次提交事件和审计快照。
+- 所有新 Form 默认绑定 Entity；未指定 Entity 时自动创建同名 Entity。
 
 当前 Forms MVP 应演进为 Entity 驱动：
 
@@ -193,7 +200,7 @@ entity_relations
   id, organization_id, source_entity_id, target_entity_id, type, source_field_id, target_field_id, config
 
 entity_records
-  id, organization_id, entity_id, data, created_by, updated_by, created_at, updated_at
+  id, organization_id, app_id, entity_id, data, created_by, updated_by, created_at, updated_at
 
 entity_record_versions
   id, record_id, version, data, changed_by, created_at
@@ -230,21 +237,21 @@ agent_runs
 
 ### Phase 0：当前项目稳态化
 
-目标：保证已有 Forms MVP、认证、Dashboard 可以稳定运行和测试。
+目标：保证已有 Forms MVP、认证、Studio 可以稳定运行和测试。
 
 已完成或基本完成：
 
 - Next.js 15 项目脚手架。
 - NextAuth 登录注册。
 - 组织与成员基础模型。
-- Dashboard 壳子。
+- Studio 壳子。
 - Forms 列表、设计器、发布、公开填写、提交记录。
 - Forms E2E 测试。
 
 仍需补齐：
 
 - 修正 README 与实际目录结构。
-- 统一 `/dashboard` 与未来 `/studio` 命名策略。
+- 完成旧 `/dashboard/*` 到 `/studio/*` 的兼容重定向。
 - 补齐更多 UI smoke tests。
 - 明确数据库迁移和 seed 流程。
 
@@ -254,11 +261,12 @@ agent_runs
 
 任务：
 
+- 新增 App 模型，作为组织下的业务应用容器。
 - 新增 Entity、Field、Relation、Record schema。
-- 新增 `/dashboard/data/entities` 页面。
+- 新增 `/studio/data/entities` 页面。
 - 支持创建 Entity 和字段。
 - 支持查看 Entity Records。
-- 表单可绑定 Entity。
+- 表单默认绑定 Entity；没有选择 Entity 时自动创建。
 - 表单提交写入 `entity_records`。
 - Form Submissions 关联 `entity_record_id`。
 
@@ -391,10 +399,12 @@ Agent 安全原则：
 ### 8.1 立即可开发
 
 - 新建 Data 导航入口。
+- 新建 App schema 与默认 App 创建逻辑。
+- 新建 App 管理 UI。
 - 新建 Entity schema。
-- 新建 Entity list / create / detail 页面。
+- 新建 Entity list / create / detail / edit 页面。
 - 新建 Field 管理 UI。
-- 新建 Record list 页面。
+- 新建 Record list / create / detail 页面。
 - 修改 Forms 创建逻辑，支持选择 Entity。
 - 修改提交逻辑，写入 Entity Record。
 
@@ -423,4 +433,3 @@ Agent 安全原则：
 - 先用 JSON 元数据跑通动态能力，再逐步引入物理表同步。
 - 所有核心功能都要有 E2E 覆盖。
 - 管理界面和使用界面必须分离，避免最终用户进入设计器语境。
-

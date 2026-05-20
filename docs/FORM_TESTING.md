@@ -2,14 +2,15 @@
 
 ## Automated Coverage
 
-- Unauthenticated access to `/dashboard/forms` redirects to login.
-- Authenticated user can create a form from the dashboard.
+- Unauthenticated access to `/studio/interfaces/forms` redirects to login.
+- Authenticated user can create a form from Studio.
 - Builder can configure text, email, and select fields.
 - Builder preview renders configured fields.
 - Published form appears in the forms table with published status.
 - Published forms expose a same-tab fill link from the forms table and edit screen.
 - Public form accepts a valid submission.
-- Submitted responses are visible from the dashboard responses page.
+- Submitted responses are visible from the Studio responses page.
+- Submitted responses also create entity records that are visible in Data Studio.
 - Required validation blocks empty UI and API submissions.
 
 ## Commands

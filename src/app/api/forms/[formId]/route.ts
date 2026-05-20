@@ -3,8 +3,9 @@ import { and, eq } from "drizzle-orm";
 
 import { routeError } from "@/lib/api/responses";
 import { requireResourceAccess } from "@/lib/auth/organization";
+import { ensureDefaultApp, ensureEntityForForm } from "@/lib/data/modeling";
 import { db } from "@/lib/db/client";
-import { forms } from "@/lib/db/schema";
+import { apps, forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
 
 export async function GET(
@@ -39,18 +40,53 @@ export async function PUT(
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
+    const existing = await db.query.forms.findFirst({
+      where: and(eq(forms.id, formId), eq(forms.orgId, current.organization.id)),
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Form not found" }, { status: 404 });
+    }
+
+    const requestedApp = body.appId
+      ? await db.query.apps.findFirst({
+          where: and(
+            eq(apps.id, String(body.appId)),
+            eq(apps.orgId, current.organization.id)
+          ),
+        })
+      : null;
+    const app = requestedApp || (existing.appId
+      ? await db.query.apps.findFirst({
+          where: and(eq(apps.id, existing.appId), eq(apps.orgId, current.organization.id)),
+        })
+      : null) || (await ensureDefaultApp({
+      orgId: current.organization.id,
+      userId: current.userId,
+    }));
+    const schema = (body.schema || { fields: [] }) as FormSchema;
+    const model = await ensureEntityForForm({
+      orgId: current.organization.id,
+      appId: app.id,
+      userId: current.userId,
+      formName: name,
+      entityId: body.entityId || existing.entityId,
+      schema,
+    });
+
     const [form] = await db
       .update(forms)
       .set({
+        appId: app.id,
+        entityId: model.entity.id,
         name,
         description: body.description || null,
-        schema: (body.schema || { fields: [] }) as FormSchema,
+        schema: model.schema,
         updatedAt: new Date(),
       })
       .where(and(eq(forms.id, formId), eq(forms.orgId, current.organization.id)))
       .returning();
 
-    if (!form) return NextResponse.json({ error: "Form not found" }, { status: 404 });
     return NextResponse.json({ form });
   } catch (error) {
     return routeError(error);

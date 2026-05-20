@@ -78,6 +78,8 @@ export function FormBuilder({
 }: {
   initialForm?: {
     id: string;
+    appId?: string | null;
+    entityId?: string | null;
     name: string;
     description: string | null;
     schema: FormSchema;
@@ -176,7 +178,7 @@ export function FormBuilder({
           ? "The form is ready to collect submissions."
           : "Your form changes were saved.",
       });
-      router.push(`/dashboard/forms/${saved.form.id}`);
+      router.push(`/studio/interfaces/forms/${saved.form.id}`);
       router.refresh();
     } catch {
       toast({
@@ -289,8 +291,16 @@ export function FormBuilder({
         <div className="flex justify-end gap-2">
           {initialForm?.status === "published" ? (
             <>
+              {initialForm.entityId ? (
+                <Button asChild variant="outline">
+                  <Link href={`/studio/data/entities/${initialForm.entityId}/records`}>
+                    <Inbox className="size-4" />
+                    View records
+                  </Link>
+                </Button>
+              ) : null}
               <Button asChild variant="outline">
-                <Link href={`/dashboard/forms/${initialForm.id}/submissions`}>
+                <Link href={`/studio/interfaces/forms/${initialForm.id}/submissions`}>
                   <Inbox className="size-4" />
                   View responses
                 </Link>

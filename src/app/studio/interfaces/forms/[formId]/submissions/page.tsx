@@ -65,14 +65,21 @@ export default async function FormSubmissionsPage({
         actions={
           <div className="flex gap-2">
             <Button asChild variant="outline">
-              <Link href="/dashboard/forms">
+              <Link href="/studio/interfaces/forms">
                 <ArrowLeft className="size-4" />
                 Forms
               </Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href={`/dashboard/forms/${form.id}`}>Configure</Link>
+              <Link href={`/studio/interfaces/forms/${form.id}`}>Configure</Link>
             </Button>
+            {form.entityId ? (
+              <Button asChild variant="outline">
+                <Link href={`/studio/data/entities/${form.entityId}/records`}>
+                  Records
+                </Link>
+              </Button>
+            ) : null}
             {form.status === "published" ? (
               <Button asChild>
                 <Link href={`/forms/${form.id}`}>Fill form</Link>
@@ -108,6 +115,7 @@ export default async function FormSubmissionsPage({
               <TableHeader>
                 <TableRow>
                   <TableHead>Submitted</TableHead>
+                  <TableHead>Record</TableHead>
                   {fields.map((field) => (
                     <TableHead key={field.id}>{field.label}</TableHead>
                   ))}
@@ -125,6 +133,11 @@ export default async function FormSubmissionsPage({
                               timeStyle: "short",
                             }).format(submission.createdAt)
                           : "Unknown"}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {submission.entityRecordId
+                          ? submission.entityRecordId.slice(0, 8)
+                          : "-"}
                       </TableCell>
                       {fields.map((field) => (
                         <TableCell key={field.id}>

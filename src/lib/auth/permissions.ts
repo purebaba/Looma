@@ -3,7 +3,14 @@ import type { InferSelectModel } from "drizzle-orm";
 import type { organizationMembers } from "@/lib/db/schema";
 
 export type OrganizationRole = InferSelectModel<typeof organizationMembers>["role"];
-export type Resource = "forms" | "workflows" | "agents" | "settings" | "team";
+export type Resource =
+  | "apps"
+  | "data"
+  | "forms"
+  | "workflows"
+  | "agents"
+  | "settings"
+  | "team";
 export type Action = "read" | "create" | "update" | "delete" | "publish" | "manage";
 
 const roleRank: Record<OrganizationRole, number> = {

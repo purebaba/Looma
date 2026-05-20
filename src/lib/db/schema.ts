@@ -34,6 +34,12 @@ export const agentStatusEnum = pgEnum("agent_status", [
   "published",
   "archived",
 ]);
+export const appStatusEnum = pgEnum("app_status", ["draft", "active", "archived"]);
+export const entityStorageModeEnum = pgEnum("entity_storage_mode", [
+  "json",
+  "physical_table",
+  "external",
+]);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -103,11 +109,112 @@ export const departments = pgTable("departments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const apps = pgTable("apps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  createdBy: uuid("created_by").references(() => users.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull(),
+  description: text("description"),
+  status: appStatusEnum("status").default("active"),
+  settings: jsonb("settings").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const entities = pgTable("entities", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  appId: uuid("app_id")
+    .notNull()
+    .references(() => apps.id, { onDelete: "cascade" }),
+  createdBy: uuid("created_by").references(() => users.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull(),
+  description: text("description"),
+  storageMode: entityStorageModeEnum("storage_mode").default("json"),
+  settings: jsonb("settings").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const entityFields = pgTable("entity_fields", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => entities.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(),
+  required: boolean("required").default(false),
+  unique: boolean("unique").default(false),
+  defaultValue: jsonb("default_value"),
+  config: jsonb("config").default({}),
+  order: integer("order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const entityRelations = pgTable("entity_relations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  sourceEntityId: uuid("source_entity_id")
+    .notNull()
+    .references(() => entities.id, { onDelete: "cascade" }),
+  targetEntityId: uuid("target_entity_id")
+    .notNull()
+    .references(() => entities.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 50 }).notNull(),
+  sourceFieldId: uuid("source_field_id").references(() => entityFields.id),
+  targetFieldId: uuid("target_field_id").references(() => entityFields.id),
+  config: jsonb("config").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const entityRecords = pgTable("entity_records", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  appId: uuid("app_id")
+    .notNull()
+    .references(() => apps.id, { onDelete: "cascade" }),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => entities.id, { onDelete: "cascade" }),
+  data: jsonb("data").notNull().default({}),
+  createdBy: uuid("created_by").references(() => users.id),
+  updatedBy: uuid("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const entityRecordVersions = pgTable("entity_record_versions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  recordId: uuid("record_id")
+    .notNull()
+    .references(() => entityRecords.id, { onDelete: "cascade" }),
+  version: integer("version").notNull().default(1),
+  data: jsonb("data").notNull().default({}),
+  changedBy: uuid("changed_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const forms = pgTable("forms", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id")
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
+  appId: uuid("app_id").references(() => apps.id, { onDelete: "set null" }),
+  entityId: uuid("entity_id").references(() => entities.id, {
+    onDelete: "set null",
+  }),
   createdBy: uuid("created_by")
     .notNull()
     .references(() => users.id),
@@ -127,6 +234,9 @@ export const formSubmissions = pgTable("form_submissions", {
   formId: uuid("form_id")
     .notNull()
     .references(() => forms.id, { onDelete: "cascade" }),
+  entityRecordId: uuid("entity_record_id").references(() => entityRecords.id, {
+    onDelete: "set null",
+  }),
   data: jsonb("data").notNull(),
   submittedBy: uuid("submitted_by").references(() => users.id),
   ipAddress: text("ip_address"),
@@ -139,6 +249,7 @@ export const workflows = pgTable("workflows", {
   orgId: uuid("org_id")
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
+  appId: uuid("app_id").references(() => apps.id, { onDelete: "set null" }),
   createdBy: uuid("created_by")
     .notNull()
     .references(() => users.id),
@@ -171,6 +282,7 @@ export const agents = pgTable("agents", {
   orgId: uuid("org_id")
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
+  appId: uuid("app_id").references(() => apps.id, { onDelete: "set null" }),
   createdBy: uuid("created_by")
     .notNull()
     .references(() => users.id),
@@ -232,6 +344,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   accounts: many(accounts),
   memberships: many(organizationMembers),
+  apps: many(apps),
+  entities: many(entities),
   forms: many(forms),
   workflows: many(workflows),
   agents: many(agents),
@@ -242,6 +356,9 @@ export const organizationsRelations = relations(
   ({ many }) => ({
     members: many(organizationMembers),
     departments: many(departments),
+    apps: many(apps),
+    entities: many(entities),
+    entityRecords: many(entityRecords),
     forms: many(forms),
     workflows: many(workflows),
     agents: many(agents),
@@ -262,10 +379,93 @@ export const organizationMembersRelations = relations(
   })
 );
 
+export const appsRelations = relations(apps, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [apps.orgId],
+    references: [organizations.id],
+  }),
+  creator: one(users, {
+    fields: [apps.createdBy],
+    references: [users.id],
+  }),
+  entities: many(entities),
+  forms: many(forms),
+  workflows: many(workflows),
+  agents: many(agents),
+}));
+
+export const entitiesRelations = relations(entities, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [entities.orgId],
+    references: [organizations.id],
+  }),
+  app: one(apps, {
+    fields: [entities.appId],
+    references: [apps.id],
+  }),
+  creator: one(users, {
+    fields: [entities.createdBy],
+    references: [users.id],
+  }),
+  fields: many(entityFields),
+  records: many(entityRecords),
+  forms: many(forms),
+}));
+
+export const entityFieldsRelations = relations(entityFields, ({ one }) => ({
+  entity: one(entities, {
+    fields: [entityFields.entityId],
+    references: [entities.id],
+  }),
+}));
+
+export const entityRecordsRelations = relations(entityRecords, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [entityRecords.orgId],
+    references: [organizations.id],
+  }),
+  app: one(apps, {
+    fields: [entityRecords.appId],
+    references: [apps.id],
+  }),
+  entity: one(entities, {
+    fields: [entityRecords.entityId],
+    references: [entities.id],
+  }),
+  creator: one(users, {
+    fields: [entityRecords.createdBy],
+    references: [users.id],
+  }),
+  updater: one(users, {
+    fields: [entityRecords.updatedBy],
+    references: [users.id],
+  }),
+  versions: many(entityRecordVersions),
+  submissions: many(formSubmissions),
+}));
+
+export const entityRecordVersionsRelations = relations(
+  entityRecordVersions,
+  ({ one }) => ({
+    record: one(entityRecords, {
+      fields: [entityRecordVersions.recordId],
+      references: [entityRecords.id],
+    }),
+    changer: one(users, {
+      fields: [entityRecordVersions.changedBy],
+      references: [users.id],
+    }),
+  })
+);
+
 export const formSubmissionsRelations = relations(formSubmissions, ({ one }) => ({
   form: one(forms, {
     fields: [formSubmissions.formId],
     references: [forms.id],
+  }),
+  entityRecord: one(entityRecords, {
+    fields: [formSubmissions.entityRecordId],
+    references: [entityRecords.id],
   }),
   submitter: one(users, {
     fields: [formSubmissions.submittedBy],
@@ -277,6 +477,14 @@ export const formsRelations = relations(forms, ({ one, many }) => ({
   organization: one(organizations, {
     fields: [forms.orgId],
     references: [organizations.id],
+  }),
+  app: one(apps, {
+    fields: [forms.appId],
+    references: [apps.id],
+  }),
+  entity: one(entities, {
+    fields: [forms.entityId],
+    references: [entities.id],
   }),
   creator: one(users, {
     fields: [forms.createdBy],
@@ -290,6 +498,10 @@ export const workflowsRelations = relations(workflows, ({ one, many }) => ({
     fields: [workflows.orgId],
     references: [organizations.id],
   }),
+  app: one(apps, {
+    fields: [workflows.appId],
+    references: [apps.id],
+  }),
   creator: one(users, {
     fields: [workflows.createdBy],
     references: [users.id],
@@ -301,6 +513,10 @@ export const agentsRelations = relations(agents, ({ one, many }) => ({
   organization: one(organizations, {
     fields: [agents.orgId],
     references: [organizations.id],
+  }),
+  app: one(apps, {
+    fields: [agents.appId],
+    references: [apps.id],
   }),
   creator: one(users, {
     fields: [agents.createdBy],

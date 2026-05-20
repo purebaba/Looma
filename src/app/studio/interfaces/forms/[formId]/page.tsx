@@ -38,6 +38,8 @@ export default async function EditFormPage({
       <FormBuilder
         initialForm={{
           id: form.id,
+          appId: form.appId,
+          entityId: form.entityId,
           name: form.name,
           description: form.description,
           schema: form.schema as FormSchema,

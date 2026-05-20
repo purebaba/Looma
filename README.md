@@ -64,7 +64,7 @@ looma/
 ├── src/
 │   ├── app/                    # Next.js App Router
 │   │   ├── (auth)/            # Authentication routes
-│   │   ├── (dashboard)/       # Main application routes
+│   │   ├── studio/            # Studio management routes
 │   │   └── api/               # API routes
 │   ├── components/            # React components
 │   │   ├── ui/               # shadcn/ui components

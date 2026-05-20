@@ -3,8 +3,9 @@ import { eq } from "drizzle-orm";
 
 import { routeError } from "@/lib/api/responses";
 import { auth } from "@/lib/auth/config";
+import { createRecordAndSubmission } from "@/lib/data/modeling";
 import { db } from "@/lib/db/client";
-import { formSubmissions, forms } from "@/lib/db/schema";
+import { forms } from "@/lib/db/schema";
 import { validateForm, type FormSchema } from "@/lib/forms/field-schema";
 
 export async function POST(
@@ -31,18 +32,25 @@ export async function POST(
       );
     }
 
-    const session = await auth();
-    const [submission] = await db
-      .insert(formSubmissions)
-      .values({
-        formId,
-        data,
-        submittedBy: session?.user?.id,
-        userAgent: request.headers.get("user-agent"),
-      })
-      .returning();
+    if (!form.appId || !form.entityId) {
+      return NextResponse.json(
+        { error: "Form is not bound to a data entity" },
+        { status: 409 }
+      );
+    }
 
-    return NextResponse.json({ submission }, { status: 201 });
+    const session = await auth();
+    const { record, submission } = await createRecordAndSubmission({
+      form,
+      data,
+      submittedBy: session?.user?.id,
+      userAgent: request.headers.get("user-agent"),
+    });
+
+    return NextResponse.json(
+      { submission, submissionId: submission.id, recordId: record.id },
+      { status: 201 }
+    );
   } catch (error) {
     return routeError(error);
   }

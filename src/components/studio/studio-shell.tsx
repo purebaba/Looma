@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
   Bot,
+  Boxes,
+  Database,
   FileText,
   GitBranch,
   Home,
@@ -25,22 +27,24 @@ import {
 import { cn } from "@/lib/utils";
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: Home },
-  { name: "Forms", href: "/dashboard/forms", icon: FileText },
-  { name: "Workflows", href: "/dashboard/workflows", icon: GitBranch },
-  { name: "Agents", href: "/dashboard/agents", icon: Bot },
-  { name: "Team", href: "/dashboard/team", icon: Users },
-  { name: "Settings", href: "/dashboard/settings", icon: Settings },
+  { name: "Studio", href: "/studio", icon: Home },
+  { name: "Apps", href: "/studio/apps", icon: Boxes },
+  { name: "Data", href: "/studio/data/entities", icon: Database },
+  { name: "Forms", href: "/studio/interfaces/forms", icon: FileText },
+  { name: "Workflows", href: "/studio/workflows", icon: GitBranch },
+  { name: "Agents", href: "/studio/agents", icon: Bot },
+  { name: "Team", href: "/studio/team", icon: Users },
+  { name: "Settings", href: "/studio/settings", icon: Settings },
 ];
 
 function isActiveRoute(pathname: string, href: string) {
-  if (href === "/dashboard") {
+  if (href === "/studio") {
     return pathname === href;
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export function StudioShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const activeItem =
@@ -51,7 +55,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       <aside className="flex w-64 flex-col border-r bg-card">
         <div className="border-b p-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href="/studio" className="flex items-center gap-2">
             <Bot className="size-8 text-primary" />
             <span className="text-xl font-bold">Looma</span>
           </Link>
@@ -100,7 +104,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem asChild>
-                <Link href="/dashboard/settings">Settings</Link>
+                <Link href="/studio/settings">Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -117,7 +121,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       <main className="flex flex-1 flex-col">
         <header className="border-b bg-card px-6 py-4">
-          <h1 className="text-2xl font-semibold">{activeItem?.name || "Dashboard"}</h1>
+          <h1 className="text-2xl font-semibold">{activeItem?.name || "Studio"}</h1>
         </header>
         <div className="flex-1 overflow-auto p-6">{children}</div>
       </main>

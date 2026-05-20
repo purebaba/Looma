@@ -19,6 +19,8 @@ export interface FieldAppearance {
 
 export interface FieldSchema {
   id: string;
+  entityFieldId?: string;
+  dataKey?: string;
   type: FieldType;
   label: string;
   placeholder?: string;
@@ -27,6 +29,7 @@ export interface FieldSchema {
   options?: { label: string; value: string }[];
   validation: ValidationRule[];
   appearance: FieldAppearance;
+  layout?: FieldAppearance;
   condition?: ConditionalLogic;
 }
 
@@ -62,6 +65,8 @@ export function createField(
 ): FieldSchema {
   return {
     id: `field_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+    dataKey: undefined,
+    entityFieldId: undefined,
     type,
     label: FIELD_TYPES[type]?.label || type,
     placeholder: "",

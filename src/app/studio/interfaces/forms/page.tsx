@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/table";
 import { requireResourceAccess } from "@/lib/auth/organization";
 import { db } from "@/lib/db/client";
-import { formSubmissions, forms } from "@/lib/db/schema";
+import { entities, formSubmissions, forms } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +35,16 @@ export default async function FormsPage() {
         .select({ value: count() })
         .from(formSubmissions)
         .where(eq(formSubmissions.formId, form.id));
-      return { ...form, submissionCount: submissionCount?.value ?? 0 };
+      const entity = form.entityId
+        ? await db.query.entities.findFirst({
+            where: eq(entities.id, form.entityId),
+          })
+        : null;
+      return {
+        ...form,
+        entityName: entity?.name ?? null,
+        submissionCount: submissionCount?.value ?? 0,
+      };
     })
   );
 
@@ -46,7 +55,7 @@ export default async function FormsPage() {
         description="Design, publish, and collect structured submissions."
         actions={
           <Button asChild>
-            <Link href="/dashboard/forms/new">
+            <Link href="/studio/interfaces/forms/new">
               <Plus className="size-4" />
               New form
             </Link>
@@ -61,7 +70,7 @@ export default async function FormsPage() {
           description="Create your first form to start collecting data."
           action={
             <Button asChild>
-              <Link href="/dashboard/forms/new">Create form</Link>
+              <Link href="/studio/interfaces/forms/new">Create form</Link>
             </Button>
           }
         />
@@ -73,6 +82,7 @@ export default async function FormsPage() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Entity</TableHead>
                   <TableHead>Version</TableHead>
                   <TableHead>Submissions</TableHead>
                   <TableHead>Updated</TableHead>
@@ -84,7 +94,7 @@ export default async function FormsPage() {
                   <TableRow key={form.id}>
                     <TableCell>
                       <Link
-                        href={`/dashboard/forms/${form.id}`}
+                        href={`/studio/interfaces/forms/${form.id}`}
                         className="font-medium hover:underline"
                       >
                         {form.name}
@@ -104,6 +114,18 @@ export default async function FormsPage() {
                         {form.status}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      {form.entityId ? (
+                        <Link
+                          href={`/studio/data/entities/${form.entityId}`}
+                          className="hover:underline"
+                        >
+                          {form.entityName || "Entity"}
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">Not bound</span>
+                      )}
+                    </TableCell>
                     <TableCell>{form.version}</TableCell>
                     <TableCell>{form.submissionCount}</TableCell>
                     <TableCell>
@@ -116,13 +138,13 @@ export default async function FormsPage() {
                     <TableCell>
                       <div className="flex justify-end gap-2">
                         <Button asChild variant="outline" size="sm">
-                          <Link href={`/dashboard/forms/${form.id}`}>
+                          <Link href={`/studio/interfaces/forms/${form.id}`}>
                             <Settings className="size-4" />
                             Configure
                           </Link>
                         </Button>
                         <Button asChild variant="outline" size="sm">
-                          <Link href={`/dashboard/forms/${form.id}/submissions`}>
+                          <Link href={`/studio/interfaces/forms/${form.id}/submissions`}>
                             <Inbox className="size-4" />
                             Responses
                           </Link>
@@ -136,7 +158,7 @@ export default async function FormsPage() {
                           </Button>
                         ) : (
                           <Button asChild variant="secondary" size="sm">
-                            <Link href={`/dashboard/forms/${form.id}`}>
+                            <Link href={`/studio/interfaces/forms/${form.id}`}>
                               Publish first
                             </Link>
                           </Button>
