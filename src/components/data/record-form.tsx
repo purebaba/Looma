@@ -40,10 +40,12 @@ export function RecordForm({
   entityId,
   fields,
   initialRecord,
+  returnPathPrefix,
 }: {
   entityId: string;
   fields: EntityField[];
   initialRecord?: RecordValue;
+  returnPathPrefix?: string;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -83,7 +85,11 @@ export function RecordForm({
         title: initialRecord?.id ? "Record updated" : "Record created",
         description: "The business record was saved.",
       });
-      router.push(`/studio/data/entities/${entityId}/records/${record.id}`);
+      router.push(
+        returnPathPrefix
+          ? `${returnPathPrefix}/${record.id}`
+          : `/studio/data/entities/${entityId}/records/${record.id}`
+      );
       router.refresh();
     } catch {
       toast({

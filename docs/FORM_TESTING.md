@@ -13,6 +13,7 @@
 - Submitted responses also create entity records that are visible in Data Studio.
 - Required validation blocks empty UI and API submissions.
 - Existing Entity fields can be imported into a Form, published, submitted, and stored back as Entity Record data.
+- App Runtime lets an authenticated business user open an app, create a record, edit it, and see the updated record in the runtime list.
 
 ## Commands
 

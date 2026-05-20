@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 
 import { routeError } from "@/lib/api/responses";
 import { requireResourceAccess } from "@/lib/auth/organization";
@@ -77,9 +77,14 @@ export async function PUT(
       return NextResponse.json({ error: "Record not found" }, { status: 404 });
     }
 
+    const [versionCount] = await db
+      .select({ value: count() })
+      .from(entityRecordVersions)
+      .where(eq(entityRecordVersions.recordId, record.id));
+
     await db.insert(entityRecordVersions).values({
       recordId: record.id,
-      version: Date.now(),
+      version: (versionCount?.value ?? 0) + 1,
       data,
       changedBy: current.userId,
     });

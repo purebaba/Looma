@@ -67,6 +67,8 @@ App Runtime 面向最终业务用户，用于实际处理业务数据、任务�
 /forms/:formId
 ```
 
+当前已实现 `/app` 的最小 Runtime：业务用户可以进入 App、查看 Entity、创建 Record、查看和编辑 Record。后续需要把它从“通用数据运行时”升级为可配置的业务页面和视图。
+
 ## 3. 核心架构
 
 Looma 应拆成四个核心层：
@@ -285,13 +287,13 @@ agent_runs
 已完成：
 
 - Forms 字段来源改为 Entity Fields。
+- 新增 `/app` 使用端入口。
+- 支持最终用户浏览实体列表和记录详情。
 
 任务：
 
 - 新增 Table View 配置。
-- 新增 Record Detail 页面。
-- 新增 `/app` 使用端入口。
-- 支持最终用户浏览实体列表和记录详情。
+- 新增可配置 Record Detail 页面。
 - 支持基础筛选、排序、搜索。
 
 验收标准：
@@ -391,8 +393,8 @@ Agent 安全原则：
 
 近期不要优先扩散到完整 n8n、模板市场、知识库、长期记忆。推荐优先级：
 
-1. App Runtime：业务用户使用界面。
-2. Table View / Record Detail 的界面配置。
+1. Table View / Record Detail 的界面配置。
+2. App Runtime 的搜索、筛选、排序和权限细化。
 3. Workflow MVP：Entity 事件驱动。
 4. Agent MVP：围绕 Entity 和 Workflow 的 AI 能力。
 5. 多智能体和高级自动化。
@@ -401,12 +403,11 @@ Agent 安全原则：
 
 ### 8.1 立即可开发
 
-- 新增 `/app` 使用端入口。
-- 建立业务用户 App 列表和单 App 首页。
-- 为 Entity Records 提供使用端列表、详情和创建入口。
 - 在 Studio 中新增 Table View 配置入口。
-- 为 App Runtime 接入基础权限判断。
-- 增加 App Runtime 的 E2E smoke tests。
+- 在 App Runtime 中使用 Table View 配置渲染记录列表。
+- 为 Record Detail 增加可配置展示区和编辑区。
+- 增加记录搜索、筛选、排序。
+- 为 App Runtime 细化 App / Entity / Record 访问权限。
 
 ### 8.2 需要设计后开发
 

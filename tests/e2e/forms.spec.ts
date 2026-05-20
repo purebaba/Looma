@@ -359,4 +359,71 @@ test.describe("Forms module", () => {
       priority: "high",
     });
   });
+
+  test("lets business users work with records in the app runtime", async ({
+    page,
+    request,
+  }) => {
+    const user = await registerUser(request);
+    await login(page, user);
+
+    const appResponse = await page.request.post("/api/apps", {
+      data: {
+        name: "Runtime QA",
+        description: "Runtime app for business users.",
+      },
+    });
+    expect(appResponse.ok()).toBeTruthy();
+    const { app } = await appResponse.json();
+
+    const entityResponse = await page.request.post("/api/entities", {
+      data: {
+        appId: app.id,
+        name: "Case QA",
+        description: "Cases handled in the app runtime.",
+        fields: [
+          {
+            name: "Case title",
+            slug: "case-title",
+            type: "text",
+            required: true,
+          },
+          {
+            name: "Case value",
+            slug: "case-value",
+            type: "number",
+          },
+        ],
+      },
+    });
+    expect(entityResponse.ok()).toBeTruthy();
+    const { entity } = await entityResponse.json();
+
+    await page.goto("/app");
+    await expect(page.getByRole("heading", { name: "Apps" })).toBeVisible();
+    await expect(page.getByText("Runtime QA")).toBeVisible();
+
+    await page.goto(`/app/apps/${app.id}`);
+    await expect(page.getByRole("heading", { name: "Runtime QA" })).toBeVisible();
+    await expect(page.getByText("Case QA")).toBeVisible();
+
+    await page.goto(`/app/apps/${app.id}/entities/${entity.id}/records/new`);
+    await page.getByRole("textbox", { name: /Case title/ }).fill("Escalation A");
+    await page.getByRole("spinbutton", { name: "Case value" }).fill("17");
+    await page.getByRole("button", { name: "Save record" }).click();
+    await expect(page).toHaveURL(
+      /\/app\/apps\/[0-9a-f-]+\/entities\/[0-9a-f-]+\/records\/[0-9a-f-]+$/
+    );
+    await expect(page.getByRole("heading", { name: "Case QA record" })).toBeVisible();
+    await expect(page.getByText("Escalation A")).toBeVisible();
+    await expect(page.getByText("17")).toBeVisible();
+
+    await page.getByRole("textbox", { name: /Case title/ }).fill("Escalation B");
+    await page.getByRole("button", { name: "Save record" }).click();
+    await expect(page.getByText("Escalation B")).toBeVisible();
+
+    await page.goto(`/app/apps/${app.id}/entities/${entity.id}`);
+    await expect(page.getByRole("heading", { name: "Case QA" })).toBeVisible();
+    await expect(page.getByText("Escalation B")).toBeVisible();
+  });
 });

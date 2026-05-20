@@ -11,6 +11,7 @@ import {
   GitBranch,
   Home,
   LogOut,
+  Play,
   Settings,
   Users,
 } from "lucide-react";
@@ -55,10 +56,17 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       <aside className="flex w-64 flex-col border-r bg-card">
         <div className="border-b p-4">
-          <Link href="/studio" className="flex items-center gap-2">
-            <Bot className="size-8 text-primary" />
-            <span className="text-xl font-bold">Looma</span>
-          </Link>
+          <div className="flex items-center justify-between gap-3">
+            <Link href="/studio" className="flex items-center gap-2">
+              <Bot className="size-8 text-primary" />
+              <span className="text-xl font-bold">Looma</span>
+            </Link>
+            <Button asChild variant="outline" size="icon">
+              <Link href="/app" aria-label="Open runtime">
+                <Play className="size-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <nav className="flex flex-1 flex-col gap-1 p-4">
