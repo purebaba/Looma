@@ -68,6 +68,7 @@ App Runtime 面向最终业务用户，用于实际处理业务数据、任务�
 ```
 
 当前已实现 `/app` 的最小 Runtime：业务用户可以进入 App、查看 Entity、创建 Record、查看和编辑 Record。后续需要把它从“通用数据运行时”升级为可配置的业务页面和视图。
+当前已实现 Table View MVP：Studio 可为 Entity 配置默认表格视图，App Runtime 的记录列表会按该配置展示列、默认排序并支持基础搜索。
 
 ## 3. 核心架构
 
@@ -289,12 +290,13 @@ agent_runs
 - Forms 字段来源改为 Entity Fields。
 - 新增 `/app` 使用端入口。
 - 支持最终用户浏览实体列表和记录详情。
+- 新增 Table View 配置。
+- 支持基础搜索和默认排序。
 
 任务：
 
-- 新增 Table View 配置。
 - 新增可配置 Record Detail 页面。
-- 支持基础筛选、排序、搜索。
+- 支持高级筛选、保存多个视图、视图权限。
 
 验收标准：
 
@@ -393,8 +395,8 @@ Agent 安全原则：
 
 近期不要优先扩散到完整 n8n、模板市场、知识库、长期记忆。推荐优先级：
 
-1. Table View / Record Detail 的界面配置。
-2. App Runtime 的搜索、筛选、排序和权限细化。
+1. Record Detail 的界面配置。
+2. App Runtime 的高级筛选、多视图和权限细化。
 3. Workflow MVP：Entity 事件驱动。
 4. Agent MVP：围绕 Entity 和 Workflow 的 AI 能力。
 5. 多智能体和高级自动化。
@@ -403,10 +405,8 @@ Agent 安全原则：
 
 ### 8.1 立即可开发
 
-- 在 Studio 中新增 Table View 配置入口。
-- 在 App Runtime 中使用 Table View 配置渲染记录列表。
 - 为 Record Detail 增加可配置展示区和编辑区。
-- 增加记录搜索、筛选、排序。
+- 增加记录高级筛选和多视图切换。
 - 为 App Runtime 细化 App / Entity / Record 访问权限。
 
 ### 8.2 需要设计后开发

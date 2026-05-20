@@ -399,6 +399,14 @@ test.describe("Forms module", () => {
     expect(entityResponse.ok()).toBeTruthy();
     const { entity } = await entityResponse.json();
 
+    await page.goto(`/studio/data/entities/${entity.id}/views/table`);
+    await page.locator("#view-name").fill("Case queue");
+    const saveViewResponse = page.waitForResponse(
+      `/api/entities/${entity.id}/views/table`
+    );
+    await page.getByRole("button", { name: "Save table view" }).click();
+    expect((await saveViewResponse).ok()).toBeTruthy();
+
     await page.goto("/app");
     await expect(page.getByRole("heading", { name: "Apps" })).toBeVisible();
     await expect(page.getByText("Runtime QA")).toBeVisible();
@@ -422,8 +430,28 @@ test.describe("Forms module", () => {
     await page.getByRole("button", { name: "Save record" }).click();
     await expect(page.getByText("Escalation B")).toBeVisible();
 
+    const secondRecordResponse = await page.request.post(
+      `/api/entities/${entity.id}/records`,
+      {
+        data: {
+          data: {
+            "case-title": "Billing C",
+            "case-value": 42,
+          },
+        },
+      }
+    );
+    expect(secondRecordResponse.ok()).toBeTruthy();
+
     await page.goto(`/app/apps/${app.id}/entities/${entity.id}`);
     await expect(page.getByRole("heading", { name: "Case QA" })).toBeVisible();
+    await expect(page.getByText("Case queue")).toBeVisible();
     await expect(page.getByText("Escalation B")).toBeVisible();
+    await expect(page.getByText("Billing C")).toBeVisible();
+
+    await page.getByPlaceholder("Search records").fill("Escalation");
+    await page.getByRole("button", { name: "Search" }).click();
+    await expect(page.getByText("Escalation B")).toBeVisible();
+    await expect(page.getByText("Billing C")).toHaveCount(0);
   });
 });

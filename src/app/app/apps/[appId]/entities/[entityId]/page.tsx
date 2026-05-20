@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { ArrowLeft, Database, Plus } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Database, Plus, Search } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -17,16 +17,25 @@ import {
 import { requireResourceAccess } from "@/lib/auth/organization";
 import { formatRecordValue } from "@/lib/data/format";
 import { db } from "@/lib/db/client";
-import { apps, entities, entityFields, entityRecords } from "@/lib/db/schema";
+import { apps, entities, entityFields, entityRecords, tableViews } from "@/lib/db/schema";
+import { resolveTableView } from "@/lib/views/table-view";
 
 export const dynamic = "force-dynamic";
 
 export default async function RuntimeEntityPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ appId: string; entityId: string }>;
+  searchParams: Promise<{
+    q?: string;
+    sort?: string;
+    dir?: string;
+  }>;
 }) {
   const { appId, entityId } = await params;
+  const query = await searchParams;
+  const search = String(query.q || "").trim().toLowerCase();
   const current = await requireResourceAccess("data", "read");
   const app = await db.query.apps.findFirst({
     where: and(eq(apps.id, appId), eq(apps.orgId, current.organization.id)),
@@ -45,8 +54,10 @@ export default async function RuntimeEntityPage({
       />
     );
   }
+  const currentApp = app;
+  const currentEntity = entity;
 
-  const [fields, records] = await Promise.all([
+  const [fields, records, view] = await Promise.all([
     db
       .select()
       .from(entityFields)
@@ -57,23 +68,74 @@ export default async function RuntimeEntityPage({
       .from(entityRecords)
       .where(eq(entityRecords.entityId, entity.id))
       .orderBy(desc(entityRecords.createdAt)),
+    db.query.tableViews.findFirst({
+      where: and(eq(tableViews.entityId, entity.id), eq(tableViews.isDefault, true)),
+    }),
   ]);
+  const resolvedView = resolveTableView(view, fields);
+  const fieldById = new Map(fields.map((field) => [field.id, field]));
+  const visibleColumns = resolvedView.config.columns
+    .filter((column) => column.visible && fieldById.has(column.fieldId))
+    .sort((a, b) => a.order - b.order);
+  const searchFields = (resolvedView.config.searchFieldIds || [])
+    .map((fieldId) => fieldById.get(fieldId))
+    .filter((field): field is (typeof fields)[number] => Boolean(field));
+  const sortFieldId = String(query.sort || resolvedView.config.sort?.fieldId || "");
+  const sortField = fieldById.get(sortFieldId);
+  const sortDirection =
+    query.dir === "desc" || resolvedView.config.sort?.direction === "desc"
+      ? "desc"
+      : "asc";
+  const filteredRecords = records
+    .filter((record) => {
+      if (!search) return true;
+      const data = record.data as Record<string, unknown>;
+      return searchFields.some((field) =>
+        String(formatRecordValue(data[field.slug])).toLowerCase().includes(search)
+      );
+    })
+    .sort((a, b) => {
+      if (!sortField) return 0;
+      const aValue = (a.data as Record<string, unknown>)[sortField.slug];
+      const bValue = (b.data as Record<string, unknown>)[sortField.slug];
+      const result = String(formatRecordValue(aValue)).localeCompare(
+        String(formatRecordValue(bValue)),
+        undefined,
+        { numeric: true, sensitivity: "base" }
+      );
+      return sortDirection === "desc" ? -result : result;
+    });
+
+  function sortHref(fieldId: string) {
+    const nextDir = sortFieldId === fieldId && sortDirection === "asc" ? "desc" : "asc";
+    const params = new URLSearchParams();
+    if (query.q) params.set("q", String(query.q));
+    params.set("sort", fieldId);
+    params.set("dir", nextDir);
+    return `/app/apps/${currentApp.id}/entities/${currentEntity.id}?${params.toString()}`;
+  }
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title={entity.name}
-        description={entity.description || `Records in ${app.name}`}
+        title={currentEntity.name}
+        description={
+          resolvedView.description ||
+          currentEntity.description ||
+          `Records in ${currentApp.name}`
+        }
         actions={
           <div className="flex gap-2">
             <Button asChild variant="outline">
-              <Link href={`/app/apps/${app.id}`}>
+              <Link href={`/app/apps/${currentApp.id}`}>
                 <ArrowLeft className="size-4" />
-                {app.name}
+                {currentApp.name}
               </Link>
             </Button>
             <Button asChild>
-              <Link href={`/app/apps/${app.id}/entities/${entity.id}/records/new`}>
+              <Link
+                href={`/app/apps/${currentApp.id}/entities/${currentEntity.id}/records/new`}
+              >
                 <Plus className="size-4" />
                 New record
               </Link>
@@ -89,7 +151,9 @@ export default async function RuntimeEntityPage({
           description="Create the first record for this business object."
           action={
             <Button asChild>
-              <Link href={`/app/apps/${app.id}/entities/${entity.id}/records/new`}>
+              <Link
+                href={`/app/apps/${currentApp.id}/entities/${currentEntity.id}/records/new`}
+              >
                 Create record
               </Link>
             </Button>
@@ -98,22 +162,54 @@ export default async function RuntimeEntityPage({
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>{records.length} records</CardTitle>
-            <CardDescription>Latest records are shown first.</CardDescription>
+            <CardTitle>{resolvedView.name}</CardTitle>
+            <CardDescription>
+              {filteredRecords.length} of {records.length} records shown.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="grid gap-4 p-0">
+            <form className="flex gap-2 px-6">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  name="q"
+                  defaultValue={query.q || ""}
+                  placeholder="Search records"
+                  className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
+                />
+              </div>
+              {sortFieldId ? <input type="hidden" name="sort" value={sortFieldId} /> : null}
+              <input type="hidden" name="dir" value={sortDirection} />
+              <Button type="submit" variant="outline">
+                Search
+              </Button>
+            </form>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Created</TableHead>
                   <TableHead>Record</TableHead>
-                  {fields.map((field) => (
-                    <TableHead key={field.id}>{field.name}</TableHead>
+                  {visibleColumns.map((column) => (
+                    <TableHead key={column.fieldId}>
+                      <Link
+                        href={sortHref(column.fieldId)}
+                        className="inline-flex items-center gap-1 hover:text-foreground"
+                      >
+                        {column.label}
+                        {sortFieldId === column.fieldId ? (
+                          sortDirection === "desc" ? (
+                            <ArrowDown className="size-3" />
+                          ) : (
+                            <ArrowUp className="size-3" />
+                          )
+                        ) : null}
+                      </Link>
+                    </TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {records.map((record) => {
+                {filteredRecords.map((record) => {
                   const data = record.data as Record<string, unknown>;
                   return (
                     <TableRow key={record.id}>
@@ -127,17 +223,20 @@ export default async function RuntimeEntityPage({
                       </TableCell>
                       <TableCell>
                         <Link
-                          href={`/app/apps/${app.id}/entities/${entity.id}/records/${record.id}`}
+                          href={`/app/apps/${currentApp.id}/entities/${currentEntity.id}/records/${record.id}`}
                           className="font-mono text-xs hover:underline"
                         >
                           {record.id.slice(0, 8)}
                         </Link>
                       </TableCell>
-                      {fields.map((field) => (
-                        <TableCell key={field.id}>
-                          {formatRecordValue(data[field.slug])}
-                        </TableCell>
-                      ))}
+                      {visibleColumns.map((column) => {
+                        const field = fieldById.get(column.fieldId);
+                        return (
+                          <TableCell key={column.fieldId}>
+                            {field ? formatRecordValue(data[field.slug]) : "-"}
+                          </TableCell>
+                        );
+                      })}
                     </TableRow>
                   );
                 })}

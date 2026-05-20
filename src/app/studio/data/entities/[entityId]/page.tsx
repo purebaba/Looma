@@ -65,6 +65,11 @@ export default async function EntityPage({
             <Button asChild variant="outline">
               <Link href={`/studio/data/entities/${entity.id}/edit`}>Edit entity</Link>
             </Button>
+            <Button asChild variant="outline">
+              <Link href={`/studio/data/entities/${entity.id}/views/table`}>
+                Configure table
+              </Link>
+            </Button>
             <Button asChild>
               <Link href={`/studio/data/entities/${entity.id}/records`}>
                 View records

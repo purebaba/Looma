@@ -206,6 +206,26 @@ export const entityRecordVersions = pgTable("entity_record_versions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const tableViews = pgTable("table_views", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  appId: uuid("app_id")
+    .notNull()
+    .references(() => apps.id, { onDelete: "cascade" }),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => entities.id, { onDelete: "cascade" }),
+  createdBy: uuid("created_by").references(() => users.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  config: jsonb("config").notNull().default({ columns: [] }),
+  isDefault: boolean("is_default").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const forms = pgTable("forms", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id")
@@ -358,10 +378,11 @@ export const organizationsRelations = relations(
     departments: many(departments),
     apps: many(apps),
     entities: many(entities),
-    entityRecords: many(entityRecords),
-    forms: many(forms),
-    workflows: many(workflows),
-    agents: many(agents),
+  entityRecords: many(entityRecords),
+  tableViews: many(tableViews),
+  forms: many(forms),
+  workflows: many(workflows),
+  agents: many(agents),
   })
 );
 
@@ -409,6 +430,7 @@ export const entitiesRelations = relations(entities, ({ one, many }) => ({
   }),
   fields: many(entityFields),
   records: many(entityRecords),
+  tableViews: many(tableViews),
   forms: many(forms),
 }));
 
@@ -457,6 +479,25 @@ export const entityRecordVersionsRelations = relations(
     }),
   })
 );
+
+export const tableViewsRelations = relations(tableViews, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [tableViews.orgId],
+    references: [organizations.id],
+  }),
+  app: one(apps, {
+    fields: [tableViews.appId],
+    references: [apps.id],
+  }),
+  entity: one(entities, {
+    fields: [tableViews.entityId],
+    references: [entities.id],
+  }),
+  creator: one(users, {
+    fields: [tableViews.createdBy],
+    references: [users.id],
+  }),
+}));
 
 export const formSubmissionsRelations = relations(formSubmissions, ({ one }) => ({
   form: one(forms, {
