@@ -16,6 +16,7 @@
 - App Runtime lets an authenticated business user open an app, create a record, edit it, and see the updated record in the runtime list.
 - Studio Table View configuration is saved and used by the App Runtime record list, including basic search behavior.
 - App Runtime record lists support configured per-field filters from the Table View.
+- Studio can create multiple Table Views for one Entity, and App Runtime users can switch between them.
 - Studio Detail View configuration is saved and used by the App Runtime record detail page, including sections, labels, and editable fields.
 
 ## Commands

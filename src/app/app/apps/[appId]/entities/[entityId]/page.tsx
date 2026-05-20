@@ -28,6 +28,7 @@ export default async function RuntimeEntityPage({
 }: {
   params: Promise<{ appId: string; entityId: string }>;
   searchParams: Promise<{
+    view?: string;
     q?: string;
     sort?: string;
     dir?: string;
@@ -58,7 +59,7 @@ export default async function RuntimeEntityPage({
   const currentApp = app;
   const currentEntity = entity;
 
-  const [fields, records, view] = await Promise.all([
+  const [fields, records, views] = await Promise.all([
     db
       .select()
       .from(entityFields)
@@ -69,10 +70,17 @@ export default async function RuntimeEntityPage({
       .from(entityRecords)
       .where(eq(entityRecords.entityId, entity.id))
       .orderBy(desc(entityRecords.createdAt)),
-    db.query.tableViews.findFirst({
-      where: and(eq(tableViews.entityId, entity.id), eq(tableViews.isDefault, true)),
-    }),
+    db
+      .select()
+      .from(tableViews)
+      .where(eq(tableViews.entityId, entity.id))
+      .orderBy(asc(tableViews.createdAt)),
   ]);
+  const view =
+    views.find((item) => item.id === query.view) ||
+    views.find((item) => item.isDefault) ||
+    views[0] ||
+    null;
   const resolvedView = resolveTableView(view, fields);
   const fieldById = new Map(fields.map((field) => [field.id, field]));
   const visibleColumns = resolvedView.config.columns
@@ -126,6 +134,7 @@ export default async function RuntimeEntityPage({
   function sortHref(fieldId: string) {
     const nextDir = sortFieldId === fieldId && sortDirection === "asc" ? "desc" : "asc";
     const params = new URLSearchParams();
+    if (view?.id) params.set("view", view.id);
     if (query.q) params.set("q", String(query.q));
     for (const filter of activeFilters) {
       params.set(`filter_${filter.field.id}`, filter.value);
@@ -182,10 +191,36 @@ export default async function RuntimeEntityPage({
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>{resolvedView.name}</CardTitle>
-            <CardDescription>
-              {filteredRecords.length} of {records.length} records shown.
-            </CardDescription>
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <CardTitle>{resolvedView.name}</CardTitle>
+                <CardDescription>
+                  {filteredRecords.length} of {records.length} records shown.
+                </CardDescription>
+              </div>
+              {views.length > 1 ? (
+                <div className="flex flex-wrap gap-2">
+                  {views.map((item) => {
+                    const params = new URLSearchParams();
+                    params.set("view", item.id);
+                    return (
+                      <Button
+                        key={item.id}
+                        asChild
+                        variant={view?.id === item.id ? "default" : "outline"}
+                        size="sm"
+                      >
+                        <Link
+                          href={`/app/apps/${currentApp.id}/entities/${currentEntity.id}?${params.toString()}`}
+                        >
+                          {item.name}
+                        </Link>
+                      </Button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
           </CardHeader>
           <CardContent className="grid gap-4 p-0">
             <form className="grid gap-4 px-6">
@@ -201,6 +236,7 @@ export default async function RuntimeEntityPage({
                 </div>
                 {sortFieldId ? <input type="hidden" name="sort" value={sortFieldId} /> : null}
                 <input type="hidden" name="dir" value={sortDirection} />
+                {view?.id ? <input type="hidden" name="view" value={view.id} /> : null}
                 <Button type="submit" variant="outline">
                   Search
                 </Button>

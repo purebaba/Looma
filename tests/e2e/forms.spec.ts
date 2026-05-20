@@ -407,6 +407,14 @@ test.describe("Forms module", () => {
     await page.getByRole("button", { name: "Save table view" }).click();
     expect((await saveViewResponse).ok()).toBeTruthy();
 
+    await page.goto(`/studio/data/entities/${entity.id}/views/table?viewId=new`);
+    await page.locator("#view-name").fill("Financial queue");
+    const createViewResponse = page.waitForResponse(
+      `/api/entities/${entity.id}/views/table`
+    );
+    await page.getByRole("button", { name: "Save table view" }).click();
+    expect((await createViewResponse).ok()).toBeTruthy();
+
     const entitiesResponse = await page.request.get("/api/entities");
     expect(entitiesResponse.ok()).toBeTruthy();
     const entitiesBody = await entitiesResponse.json();
@@ -482,9 +490,13 @@ test.describe("Forms module", () => {
 
     await page.goto(`/app/apps/${app.id}/entities/${entity.id}`);
     await expect(page.getByRole("heading", { name: "Case QA" })).toBeVisible();
-    await expect(page.getByText("Case queue")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Case queue" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Financial queue" })).toBeVisible();
     await expect(page.getByText("Escalation B")).toBeVisible();
     await expect(page.getByText("Billing C")).toBeVisible();
+
+    await page.getByRole("link", { name: "Financial queue" }).click();
+    await expect(page).toHaveURL(/view=/);
 
     await page.getByPlaceholder("Search records").fill("Escalation");
     await page.getByRole("button", { name: "Search" }).click();

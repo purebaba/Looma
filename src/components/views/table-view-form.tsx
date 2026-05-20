@@ -21,21 +21,28 @@ type FieldOption = {
 
 export function TableViewForm({
   entityId,
+  viewId,
   fields,
   initialName,
   initialDescription,
   initialConfig,
+  initialIsDefault = false,
+  mode = "update",
 }: {
   entityId: string;
+  viewId?: string | null;
   fields: FieldOption[];
   initialName: string;
   initialDescription?: string | null;
   initialConfig: TableViewConfig;
+  initialIsDefault?: boolean;
+  mode?: "create" | "update";
 }) {
   const router = useRouter();
   const { toast } = useToast();
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription || "");
+  const [isDefault, setIsDefault] = useState(initialIsDefault);
   const [columns, setColumns] = useState(initialConfig.columns);
   const [searchFieldIds, setSearchFieldIds] = useState(
     initialConfig.searchFieldIds || []
@@ -92,11 +99,13 @@ export function TableViewForm({
     setIsSaving(true);
     try {
       const response = await fetch(`/api/entities/${entityId}/views/table`, {
-        method: "PUT",
+        method: mode === "create" ? "POST" : "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          viewId,
           name,
           description,
+          isDefault,
           config: {
             columns,
             searchFieldIds,
@@ -153,6 +162,14 @@ export function TableViewForm({
               onChange={(event) => setDescription(event.target.value)}
             />
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={isDefault}
+              onChange={(event) => setIsDefault(event.target.checked)}
+            />
+            Default view
+          </label>
         </CardContent>
       </Card>
 
