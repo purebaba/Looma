@@ -490,5 +490,11 @@ test.describe("Forms module", () => {
     await page.getByRole("button", { name: "Search" }).click();
     await expect(page.getByText("Escalation B")).toBeVisible();
     await expect(page.getByText("Billing C")).toHaveCount(0);
+
+    await page.goto(`/app/apps/${app.id}/entities/${entity.id}`);
+    await page.getByPlaceholder("Filter Case value").fill("42");
+    await page.getByRole("button", { name: "Search" }).click();
+    await expect(page.getByText("Billing C")).toBeVisible();
+    await expect(page.getByText("Escalation B")).toHaveCount(0);
   });
 });

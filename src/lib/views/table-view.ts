@@ -16,6 +16,7 @@ export type TableViewSort = {
 export type TableViewConfig = {
   columns: TableViewColumn[];
   searchFieldIds?: string[];
+  filterFieldIds?: string[];
   sort?: TableViewSort | null;
 };
 
@@ -34,6 +35,7 @@ export function defaultTableViewConfig(fields: EntityField[]): TableViewConfig {
       .filter((field) => ["text", "textarea", "email", "phone", "select"].includes(field.type))
       .slice(0, 4)
       .map((field) => field.id),
+    filterFieldIds: fields.slice(0, 6).map((field) => field.id),
     sort: fields[0] ? { fieldId: fields[0].id, direction: "asc" } : null,
   };
 }
@@ -72,6 +74,9 @@ export function normalizeTableViewConfig(
   const searchFieldIds = Array.isArray(raw.searchFieldIds)
     ? raw.searchFieldIds.filter((fieldId) => knownFieldIds.has(String(fieldId))).map(String)
     : fallback.searchFieldIds;
+  const filterFieldIds = Array.isArray(raw.filterFieldIds)
+    ? raw.filterFieldIds.filter((fieldId) => knownFieldIds.has(String(fieldId))).map(String)
+    : fallback.filterFieldIds;
   const sort: TableViewSort | null | undefined =
     raw.sort && knownFieldIds.has(String(raw.sort.fieldId))
       ? {
@@ -83,6 +88,7 @@ export function normalizeTableViewConfig(
   return {
     columns: [...columns, ...missingColumns].sort((a, b) => a.order - b.order),
     searchFieldIds,
+    filterFieldIds,
     sort,
   };
 }

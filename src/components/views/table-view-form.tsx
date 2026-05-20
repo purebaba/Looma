@@ -40,6 +40,9 @@ export function TableViewForm({
   const [searchFieldIds, setSearchFieldIds] = useState(
     initialConfig.searchFieldIds || []
   );
+  const [filterFieldIds, setFilterFieldIds] = useState(
+    initialConfig.filterFieldIds || []
+  );
   const [sortFieldId, setSortFieldId] = useState(initialConfig.sort?.fieldId || "");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">(
     initialConfig.sort?.direction || "asc"
@@ -77,6 +80,14 @@ export function TableViewForm({
     );
   }
 
+  function toggleFilterField(fieldId: string, checked: boolean) {
+    setFilterFieldIds((current) =>
+      checked
+        ? Array.from(new Set([...current, fieldId]))
+        : current.filter((item) => item !== fieldId)
+    );
+  }
+
   async function saveView() {
     setIsSaving(true);
     try {
@@ -89,6 +100,7 @@ export function TableViewForm({
           config: {
             columns,
             searchFieldIds,
+            filterFieldIds,
             sort: sortFieldId
               ? { fieldId: sortFieldId, direction: sortDirection }
               : null,
@@ -158,7 +170,7 @@ export function TableViewForm({
             return (
               <div
                 key={column.fieldId}
-                className="grid gap-3 rounded-md border p-3 lg:grid-cols-[32px_120px_1fr_160px_160px]"
+                className="grid gap-3 rounded-md border p-3 xl:grid-cols-[32px_120px_1fr_160px_140px_140px]"
               >
                 <div className="flex items-center text-muted-foreground">
                   <GripVertical className="size-4" />
@@ -213,6 +225,16 @@ export function TableViewForm({
                     }
                   />
                   Searchable
+                </label>
+                <label className="flex items-end gap-2 pb-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={filterFieldIds.includes(column.fieldId)}
+                    onChange={(event) =>
+                      toggleFilterField(column.fieldId, event.target.checked)
+                    }
+                  />
+                  Filterable
                 </label>
               </div>
             );

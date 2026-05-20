@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { ArrowDown, ArrowLeft, ArrowUp, Database, Plus, Search } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Database, Filter, Plus, Search } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -31,6 +31,7 @@ export default async function RuntimeEntityPage({
     q?: string;
     sort?: string;
     dir?: string;
+    [key: string]: string | undefined;
   }>;
 }) {
   const { appId, entityId } = await params;
@@ -80,6 +81,15 @@ export default async function RuntimeEntityPage({
   const searchFields = (resolvedView.config.searchFieldIds || [])
     .map((fieldId) => fieldById.get(fieldId))
     .filter((field): field is (typeof fields)[number] => Boolean(field));
+  const filterFields = (resolvedView.config.filterFieldIds || [])
+    .map((fieldId) => fieldById.get(fieldId))
+    .filter((field): field is (typeof fields)[number] => Boolean(field));
+  const activeFilters = filterFields
+    .map((field) => ({
+      field,
+      value: String(query[`filter_${field.id}`] || "").trim().toLowerCase(),
+    }))
+    .filter((filter) => filter.value);
   const sortFieldId = String(query.sort || resolvedView.config.sort?.fieldId || "");
   const sortField = fieldById.get(sortFieldId);
   const sortDirection =
@@ -92,6 +102,13 @@ export default async function RuntimeEntityPage({
       const data = record.data as Record<string, unknown>;
       return searchFields.some((field) =>
         String(formatRecordValue(data[field.slug])).toLowerCase().includes(search)
+      );
+    })
+    .filter((record) => {
+      if (activeFilters.length === 0) return true;
+      const data = record.data as Record<string, unknown>;
+      return activeFilters.every(({ field, value }) =>
+        String(formatRecordValue(data[field.slug])).toLowerCase().includes(value)
       );
     })
     .sort((a, b) => {
@@ -110,6 +127,9 @@ export default async function RuntimeEntityPage({
     const nextDir = sortFieldId === fieldId && sortDirection === "asc" ? "desc" : "asc";
     const params = new URLSearchParams();
     if (query.q) params.set("q", String(query.q));
+    for (const filter of activeFilters) {
+      params.set(`filter_${filter.field.id}`, filter.value);
+    }
     params.set("sort", fieldId);
     params.set("dir", nextDir);
     return `/app/apps/${currentApp.id}/entities/${currentEntity.id}?${params.toString()}`;
@@ -168,21 +188,41 @@ export default async function RuntimeEntityPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 p-0">
-            <form className="flex gap-2 px-6">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  name="q"
-                  defaultValue={query.q || ""}
-                  placeholder="Search records"
-                  className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
-                />
+            <form className="grid gap-4 px-6">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    name="q"
+                    defaultValue={query.q || ""}
+                    placeholder="Search records"
+                    className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
+                  />
+                </div>
+                {sortFieldId ? <input type="hidden" name="sort" value={sortFieldId} /> : null}
+                <input type="hidden" name="dir" value={sortDirection} />
+                <Button type="submit" variant="outline">
+                  Search
+                </Button>
               </div>
-              {sortFieldId ? <input type="hidden" name="sort" value={sortFieldId} /> : null}
-              <input type="hidden" name="dir" value={sortDirection} />
-              <Button type="submit" variant="outline">
-                Search
-              </Button>
+              {filterFields.length ? (
+                <div className="grid gap-3 rounded-md border bg-muted/30 p-3 md:grid-cols-2 xl:grid-cols-3">
+                  {filterFields.map((field) => (
+                    <label key={field.id} className="grid gap-1 text-sm">
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <Filter className="size-3" />
+                        {field.name}
+                      </span>
+                      <input
+                        name={`filter_${field.id}`}
+                        defaultValue={query[`filter_${field.id}`] || ""}
+                        placeholder={`Filter ${field.name}`}
+                        className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      />
+                    </label>
+                  ))}
+                </div>
+              ) : null}
             </form>
             <Table>
               <TableHeader>
