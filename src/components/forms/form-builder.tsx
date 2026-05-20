@@ -73,8 +73,32 @@ const FIELD_PALETTE: Array<{
 
 const OPTION_FIELD_TYPES = new Set<FieldType>(["select", "radio", "checkbox"]);
 
+type AppOption = {
+  id: string;
+  name: string;
+};
+
+type EntityFieldOption = {
+  id: string;
+  name: string;
+  slug: string;
+  type: string;
+  required?: boolean | null;
+  config?: unknown;
+  order?: number | null;
+};
+
+type EntityOption = {
+  id: string;
+  appId: string;
+  name: string;
+  fields: EntityFieldOption[];
+};
+
 export function FormBuilder({
   initialForm,
+  apps = [],
+  entities = [],
 }: {
   initialForm?: {
     id: string;
@@ -85,12 +109,18 @@ export function FormBuilder({
     schema: FormSchema;
     status: string | null;
   };
+  apps?: AppOption[];
+  entities?: EntityOption[];
 }) {
   const router = useRouter();
   const { toast } = useToast();
   const [name, setName] = useState(initialForm?.name || "Untitled form");
   const [description, setDescription] = useState(initialForm?.description || "");
-  const [fields, setFields] = useState<FieldSchema[]>(initialForm?.schema.fields || []);
+  const [appId, setAppId] = useState(initialForm?.appId || apps[0]?.id || "");
+  const [entityId, setEntityId] = useState(initialForm?.entityId || "");
+  const [fields, setFields] = useState<FieldSchema[]>(
+    initialForm?.schema.fields || []
+  );
   const [selectedId, setSelectedId] = useState<string | null>(
     initialForm?.schema.fields[0]?.id || null
   );
@@ -103,6 +133,79 @@ export function FormBuilder({
 
   const selectedField = fields.find((field) => field.id === selectedId) || null;
   const schema = useMemo<FormSchema>(() => ({ fields }), [fields]);
+  const availableEntities = entities.filter((entity) => entity.appId === appId);
+  const selectedEntity =
+    availableEntities.find((entity) => entity.id === entityId) || null;
+  const importedEntityFieldIds = new Set(
+    fields.map((field) => field.entityFieldId).filter(Boolean)
+  );
+
+  function entityFieldToFormField(entityField: EntityFieldOption): FieldSchema {
+    const type = FIELD_PALETTE.some((item) => item.type === entityField.type)
+      ? (entityField.type as FieldType)
+      : "text";
+    return createField(type, {
+      entityFieldId: entityField.id,
+      dataKey: entityField.slug,
+      label: entityField.name,
+      appearance: {
+        width: 12,
+        order: fields.length,
+      },
+      validation: entityField.required
+        ? [{ type: "required", message: `${entityField.name} is required` }]
+        : [],
+      options:
+        OPTION_FIELD_TYPES.has(type) &&
+        typeof entityField.config === "object" &&
+        entityField.config &&
+        "options" in entityField.config &&
+        Array.isArray((entityField.config as { options?: unknown }).options)
+          ? (
+              entityField.config as {
+                options: { label: string; value: string }[];
+              }
+            ).options
+          : OPTION_FIELD_TYPES.has(type)
+            ? [
+                { label: "Option 1", value: "option_1" },
+                { label: "Option 2", value: "option_2" },
+              ]
+            : undefined,
+    });
+  }
+
+  function importEntityField(entityField: EntityFieldOption) {
+    const field = entityFieldToFormField(entityField);
+    setFields((current) => [
+      ...current,
+      {
+        ...field,
+        appearance: { ...field.appearance, order: current.length },
+      },
+    ]);
+    setSelectedId(field.id);
+  }
+
+  function importAllEntityFields() {
+    if (!selectedEntity) return;
+    setFields((current) => {
+      const existing = new Set(
+        current.map((field) => field.entityFieldId).filter(Boolean)
+      );
+      const imported = selectedEntity.fields
+        .filter((field) => !existing.has(field.id))
+        .map((field, index) => {
+          const next = entityFieldToFormField(field);
+          return {
+            ...next,
+            appearance: { ...next.appearance, order: current.length + index },
+          };
+        });
+      if (imported[0]) setSelectedId(imported[0].id);
+      return [...current, ...imported];
+    });
+  }
 
   function addField(type: FieldType) {
     const field = createField(type, {
@@ -149,6 +252,8 @@ export function FormBuilder({
     setIsSaving(true);
     try {
       const payload = {
+        appId,
+        entityId: entityId || null,
         name,
         description,
         schema: { fields },
@@ -196,22 +301,52 @@ export function FormBuilder({
       <Card className="h-fit">
         <CardHeader>
           <CardTitle>Fields</CardTitle>
-          <CardDescription>Add fields to your form.</CardDescription>
+          <CardDescription>
+            Import entity fields first, or add a new field and sync it back.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-2">
-          {FIELD_PALETTE.map((item) => (
-            <Button
-              key={item.type}
-              type="button"
-              variant="outline"
-              className="justify-start"
-              data-testid={`add-field-${item.type}`}
-              onClick={() => addField(item.type)}
-            >
-              <item.icon className="size-4" />
-              {item.label}
-            </Button>
-          ))}
+        <CardContent className="grid gap-4">
+          {selectedEntity ? (
+            <div className="grid gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={importAllEntityFields}
+              >
+                Import all entity fields
+              </Button>
+              <div className="grid gap-2">
+                {selectedEntity.fields.map((entityField) => (
+                  <Button
+                    key={entityField.id}
+                    type="button"
+                    variant="outline"
+                    className="justify-start"
+                    disabled={importedEntityFieldIds.has(entityField.id)}
+                    onClick={() => importEntityField(entityField)}
+                  >
+                    <Type className="size-4" />
+                    {entityField.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <div className="grid gap-2 border-t pt-4">
+            {FIELD_PALETTE.map((item) => (
+              <Button
+                key={item.type}
+                type="button"
+                variant="outline"
+                className="justify-start"
+                data-testid={`add-field-${item.type}`}
+                onClick={() => addField(item.type)}
+              >
+                <item.icon className="size-4" />
+                {item.label}
+              </Button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
@@ -220,6 +355,42 @@ export function FormBuilder({
           <CardHeader className="gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex flex-1 flex-col gap-3">
+                <div className="grid gap-3 rounded-lg border bg-muted/30 p-3 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="form-app">App</Label>
+                    <select
+                      id="form-app"
+                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      value={appId}
+                      onChange={(event) => {
+                        setAppId(event.target.value);
+                        setEntityId("");
+                      }}
+                    >
+                      {apps.map((app) => (
+                        <option key={app.id} value={app.id}>
+                          {app.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="form-entity">Entity</Label>
+                    <select
+                      id="form-entity"
+                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      value={entityId}
+                      onChange={(event) => setEntityId(event.target.value)}
+                    >
+                      <option value="">Create entity from this form</option>
+                      {availableEntities.map((entity) => (
+                        <option key={entity.id} value={entity.id}>
+                          {entity.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <Input
                   value={name}
                   onChange={(event) => setName(event.target.value)}

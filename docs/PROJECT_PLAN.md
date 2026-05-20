@@ -239,7 +239,7 @@ agent_runs
 
 目标：保证已有 Forms MVP、认证、Studio 可以稳定运行和测试。
 
-已完成或基本完成：
+已完成：
 
 - Next.js 15 项目脚手架。
 - NextAuth 登录注册。
@@ -247,11 +247,11 @@ agent_runs
 - Studio 壳子。
 - Forms 列表、设计器、发布、公开填写、提交记录。
 - Forms E2E 测试。
+- 旧 `/dashboard/*` 到 `/studio/*` 的兼容重定向。
 
 仍需补齐：
 
 - 修正 README 与实际目录结构。
-- 完成旧 `/dashboard/*` 到 `/studio/*` 的兼容重定向。
 - 补齐更多 UI smoke tests。
 - 明确数据库迁移和 seed 流程。
 
@@ -259,7 +259,7 @@ agent_runs
 
 目标：把 Looma 从“表单工具”升级为“业务数据平台”。
 
-任务：
+已完成：
 
 - 新增 App 模型，作为组织下的业务应用容器。
 - 新增 Entity、Field、Relation、Record schema。
@@ -269,6 +269,7 @@ agent_runs
 - 表单默认绑定 Entity；没有选择 Entity 时自动创建。
 - 表单提交写入 `entity_records`。
 - Form Submissions 关联 `entity_record_id`。
+- 表单设计器支持选择 App / Entity，并从已有 Entity Fields 导入字段。
 
 验收标准：
 
@@ -281,9 +282,12 @@ agent_runs
 
 目标：从表单设计器扩展到基础业务界面搭建。
 
-任务：
+已完成：
 
 - Forms 字段来源改为 Entity Fields。
+
+任务：
+
 - 新增 Table View 配置。
 - 新增 Record Detail 页面。
 - 新增 `/app` 使用端入口。
@@ -387,26 +391,22 @@ Agent 安全原则：
 
 近期不要优先扩散到完整 n8n、模板市场、知识库、长期记忆。推荐优先级：
 
-1. Data Studio：Entity / Field / Record。
-2. Forms 绑定 Entity。
-3. App Runtime：业务用户使用界面。
-4. Workflow MVP：Entity 事件驱动。
-5. Agent MVP：围绕 Entity 和 Workflow 的 AI 能力。
-6. 多智能体和高级自动化。
+1. App Runtime：业务用户使用界面。
+2. Table View / Record Detail 的界面配置。
+3. Workflow MVP：Entity 事件驱动。
+4. Agent MVP：围绕 Entity 和 Workflow 的 AI 能力。
+5. 多智能体和高级自动化。
 
 ## 8. 后续任务拆解
 
 ### 8.1 立即可开发
 
-- 新建 Data 导航入口。
-- 新建 App schema 与默认 App 创建逻辑。
-- 新建 App 管理 UI。
-- 新建 Entity schema。
-- 新建 Entity list / create / detail / edit 页面。
-- 新建 Field 管理 UI。
-- 新建 Record list / create / detail 页面。
-- 修改 Forms 创建逻辑，支持选择 Entity。
-- 修改提交逻辑，写入 Entity Record。
+- 新增 `/app` 使用端入口。
+- 建立业务用户 App 列表和单 App 首页。
+- 为 Entity Records 提供使用端列表、详情和创建入口。
+- 在 Studio 中新增 Table View 配置入口。
+- 为 App Runtime 接入基础权限判断。
+- 增加 App Runtime 的 E2E smoke tests。
 
 ### 8.2 需要设计后开发
 

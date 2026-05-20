@@ -253,4 +253,110 @@ test.describe("Forms module", () => {
     await page.goto("/dashboard/forms");
     await expect(page).toHaveURL(/\/studio\/interfaces\/forms$/);
   });
+
+  test("builds a form from an existing entity and stores submissions as records", async ({
+    page,
+    request,
+  }) => {
+    const user = await registerUser(request);
+    await login(page, user);
+
+    const appResponse = await page.request.post("/api/apps", {
+      data: {
+        name: "Support QA",
+        description: "Support case intake models.",
+      },
+    });
+    expect(appResponse.ok()).toBeTruthy();
+    const { app } = await appResponse.json();
+
+    const entityResponse = await page.request.post("/api/entities", {
+      data: {
+        appId: app.id,
+        name: "Ticket QA",
+        description: "Tickets submitted by customers.",
+        fields: [
+          {
+            name: "Requester name",
+            slug: "requester-name",
+            type: "text",
+            required: true,
+          },
+          {
+            name: "Priority",
+            slug: "priority",
+            type: "select",
+            config: {
+              options: [
+                { label: "Low", value: "low" },
+                { label: "High", value: "high" },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    expect(entityResponse.ok()).toBeTruthy();
+    const { entity } = await entityResponse.json();
+
+    await page.goto("/studio/interfaces/forms/new");
+    await page.getByLabel("App").selectOption({ label: "Support QA" });
+    await page.getByLabel("Entity").selectOption({ label: "Ticket QA" });
+    await expect(
+      page.getByRole("button", { name: "Requester name" })
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Priority" })).toBeVisible();
+
+    await page.locator('input[value="Untitled form"]').fill("Ticket intake QA");
+    await page.getByRole("button", { name: "Import all entity fields" }).click();
+    await expect(page.getByTestId("builder-field-text")).toContainText(
+      "Requester name"
+    );
+    await expect(page.getByTestId("builder-field-select")).toContainText(
+      "Priority"
+    );
+
+    await page.getByRole("button", { name: "Preview" }).click();
+    await expect(page.getByLabel("Requester name")).toBeVisible();
+    await expect(page.getByLabel("Priority")).toBeVisible();
+
+    await page.getByTestId("publish-form").click();
+    await expect(page).toHaveURL(/\/studio\/interfaces\/forms\/[0-9a-f-]+$/);
+    const formId = page.url().split("/").pop();
+    expect(formId).toBeTruthy();
+
+    const formsResponse = await page.request.get("/api/forms");
+    expect(formsResponse.ok()).toBeTruthy();
+    const formsBody = await formsResponse.json();
+    const createdForm = formsBody.forms.find(
+      (item: { id: string }) => item.id === formId
+    );
+    expect(createdForm.appId).toBe(app.id);
+    expect(createdForm.entityId).toBe(entity.id);
+    expect(createdForm.entityName).toBe("Ticket QA");
+
+    await page.goto(`/forms/${formId}`);
+    await page.getByLabel("Requester name").fill("Grace Hopper");
+    await page.getByLabel("Priority").selectOption("high");
+    await page.getByRole("button", { name: "Submit response" }).click();
+    await expect(page.getByText("Submission received")).toBeVisible();
+
+    const submissions = await page.request.get(`/api/forms/${formId}/submissions`);
+    expect(submissions.ok()).toBeTruthy();
+    const submissionsBody = await submissions.json();
+    expect(submissionsBody.submissions).toHaveLength(1);
+    expect(submissionsBody.submissions[0].entityRecordId).toBeTruthy();
+
+    const records = await page.request.get(`/api/entities/${entity.id}/records`);
+    expect(records.ok()).toBeTruthy();
+    const recordsBody = await records.json();
+    expect(recordsBody.records).toHaveLength(1);
+    expect(recordsBody.records[0].id).toBe(
+      submissionsBody.submissions[0].entityRecordId
+    );
+    expect(recordsBody.records[0].data).toMatchObject({
+      "requester-name": "Grace Hopper",
+      priority: "high",
+    });
+  });
 });

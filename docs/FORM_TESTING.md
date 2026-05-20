@@ -12,6 +12,7 @@
 - Submitted responses are visible from the Studio responses page.
 - Submitted responses also create entity records that are visible in Data Studio.
 - Required validation blocks empty UI and API submissions.
+- Existing Entity fields can be imported into a Form, published, submitted, and stored back as Entity Record data.
 
 ## Commands
 
