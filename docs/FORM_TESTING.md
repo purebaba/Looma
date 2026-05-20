@@ -15,6 +15,7 @@
 - Existing Entity fields can be imported into a Form, published, submitted, and stored back as Entity Record data.
 - App Runtime lets an authenticated business user open an app, create a record, edit it, and see the updated record in the runtime list.
 - Studio Table View configuration is saved and used by the App Runtime record list, including basic search behavior.
+- Studio Detail View configuration is saved and used by the App Runtime record detail page, including sections, labels, and editable fields.
 
 ## Commands
 

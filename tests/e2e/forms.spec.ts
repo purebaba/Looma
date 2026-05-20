@@ -407,6 +407,38 @@ test.describe("Forms module", () => {
     await page.getByRole("button", { name: "Save table view" }).click();
     expect((await saveViewResponse).ok()).toBeTruthy();
 
+    const entitiesResponse = await page.request.get("/api/entities");
+    expect(entitiesResponse.ok()).toBeTruthy();
+    const entitiesBody = await entitiesResponse.json();
+    const createdEntity = entitiesBody.entities.find(
+      (item: { id: string }) => item.id === entity.id
+    );
+    const titleField = createdEntity.fields.find(
+      (field: { slug: string }) => field.slug === "case-title"
+    );
+    const valueField = createdEntity.fields.find(
+      (field: { slug: string }) => field.slug === "case-value"
+    );
+    expect(titleField).toBeTruthy();
+    expect(valueField).toBeTruthy();
+
+    await page.goto(`/studio/data/entities/${entity.id}/views/detail`);
+    await page.locator("#detail-view-name").fill("Case detail");
+    await page.locator(`#detail-label-${titleField.id}`).fill("Summary");
+    await page.locator(`#detail-section-${titleField.id}`).fill("Overview");
+    await page.locator(`#detail-label-${valueField.id}`).fill("Amount");
+    await page.locator(`#detail-section-${valueField.id}`).fill("Financials");
+    await page
+      .locator(`#detail-label-${valueField.id}`)
+      .locator("xpath=ancestor::div[contains(@class, 'rounded-md')][1]")
+      .getByLabel("Editable")
+      .uncheck();
+    const saveDetailResponse = page.waitForResponse(
+      `/api/entities/${entity.id}/views/detail`
+    );
+    await page.getByRole("button", { name: "Save detail view" }).click();
+    expect((await saveDetailResponse).ok()).toBeTruthy();
+
     await page.goto("/app");
     await expect(page.getByRole("heading", { name: "Apps" })).toBeVisible();
     await expect(page.getByText("Runtime QA")).toBeVisible();
@@ -423,8 +455,13 @@ test.describe("Forms module", () => {
       /\/app\/apps\/[0-9a-f-]+\/entities\/[0-9a-f-]+\/records\/[0-9a-f-]+$/
     );
     await expect(page.getByRole("heading", { name: "Case QA record" })).toBeVisible();
+    await expect(page.getByText("Overview")).toBeVisible();
+    await expect(page.getByText("Summary")).toBeVisible();
+    await expect(page.getByText("Financials")).toBeVisible();
+    await expect(page.getByText("Amount")).toBeVisible();
     await expect(page.getByText("Escalation A")).toBeVisible();
     await expect(page.getByText("17")).toBeVisible();
+    await expect(page.getByRole("spinbutton", { name: "Case value" })).toHaveCount(0);
 
     await page.getByRole("textbox", { name: /Case title/ }).fill("Escalation B");
     await page.getByRole("button", { name: "Save record" }).click();
