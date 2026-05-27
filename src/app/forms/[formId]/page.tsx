@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { db } from "@/lib/db/client";
 import { forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
+import { normalizeFormSettings } from "@/lib/forms/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,8 @@ export default async function PublicFormPage({
     where: eq(forms.id, formId),
   });
 
+  const settings = form ? normalizeFormSettings(form.settings) : null;
+
   if (!form || form.status !== "published") {
     return (
       <main className="flex min-h-screen items-center justify-center bg-muted p-6">
@@ -28,6 +31,19 @@ export default async function PublicFormPage({
             <CardDescription>
               This form is not published or no longer exists.
             </CardDescription>
+          </CardHeader>
+        </Card>
+      </main>
+    );
+  }
+
+  if (!settings?.collectingEnabled) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-muted p-6">
+        <Card className="w-full max-w-lg">
+          <CardHeader>
+            <CardTitle>Form closed</CardTitle>
+            <CardDescription>{settings?.closedMessage}</CardDescription>
           </CardHeader>
         </Card>
       </main>
@@ -49,7 +65,11 @@ export default async function PublicFormPage({
             ) : null}
           </CardHeader>
           <CardContent>
-            <FormSubmitClient formId={form.id} schema={form.schema as FormSchema} />
+            <FormSubmitClient
+              formId={form.id}
+              schema={form.schema as FormSchema}
+              settings={settings}
+            />
           </CardContent>
         </Card>
       </div>

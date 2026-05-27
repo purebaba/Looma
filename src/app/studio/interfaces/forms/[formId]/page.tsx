@@ -76,6 +76,7 @@ export default async function EditFormPage({
           name: form.name,
           description: form.description,
           schema: form.schema as FormSchema,
+          settings: form.settings,
           status: form.status,
         }}
       />

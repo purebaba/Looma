@@ -75,6 +75,7 @@ App Runtime 面向最终业务用户，用于实际处理业务数据、任务�
 当前已补齐 Form 生命周期基础：发布后编辑会生成新的 draft 版本，公开填写页只服务 published 状态，表单支持 archive / restore / delete 管理操作。
 当前已补齐 Responses 运营基础：Responses 列表可进入单条提交详情，详情页展示提交快照、审计元数据和关联 Record 跳转，并支持 CSV 导出。
 当前已补齐 Responses 查询基础：Responses 列表支持关键词搜索、按字段值过滤、按提交时间排序，CSV 导出会复用当前查询条件。
+当前已补齐公开提交体验基础：Form settings 支持开启/关闭收集、关闭提示、成功标题/文案和提交后跳转 URL，公开页与提交 API 使用同一套设置。
 
 ## 3. 核心架构
 

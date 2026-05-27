@@ -53,6 +53,11 @@ import {
   type FormSchema,
   type ValidationRule,
 } from "@/lib/forms/field-schema";
+import {
+  DEFAULT_FORM_SETTINGS,
+  normalizeFormSettings,
+  type FormSettings,
+} from "@/lib/forms/settings";
 import type { FieldType } from "@/types/forms";
 
 const FIELD_PALETTE: Array<{
@@ -108,6 +113,7 @@ export function FormBuilder({
     name: string;
     description: string | null;
     schema: FormSchema;
+    settings?: unknown;
     status: string | null;
   };
   apps?: AppOption[];
@@ -117,6 +123,11 @@ export function FormBuilder({
   const { toast } = useToast();
   const [name, setName] = useState(initialForm?.name || "Untitled form");
   const [description, setDescription] = useState(initialForm?.description || "");
+  const [settings, setSettings] = useState<FormSettings>(
+    initialForm?.settings
+      ? normalizeFormSettings(initialForm.settings)
+      : DEFAULT_FORM_SETTINGS
+  );
   const [appId, setAppId] = useState(initialForm?.appId || apps[0]?.id || "");
   const [entityId, setEntityId] = useState(initialForm?.entityId || "");
   const [fields, setFields] = useState<FieldSchema[]>(
@@ -258,6 +269,7 @@ export function FormBuilder({
         name,
         description,
         schema: { fields },
+        settings,
       };
       const response = await fetch(
         initialForm ? `/api/forms/${initialForm.id}` : "/api/forms",
@@ -482,6 +494,85 @@ export function FormBuilder({
             ) : (
               <EmptyCanvas />
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Submission experience</CardTitle>
+            <CardDescription>
+              Control whether the public form accepts responses and what happens after submit.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={settings.collectingEnabled}
+                onChange={(event) =>
+                  setSettings((current) => ({
+                    ...current,
+                    collectingEnabled: event.target.checked,
+                  }))
+                }
+              />
+              Accept new responses
+            </label>
+            <div className="grid gap-2">
+              <Label htmlFor="form-closed-message">Closed message</Label>
+              <Textarea
+                id="form-closed-message"
+                value={settings.closedMessage}
+                onChange={(event) =>
+                  setSettings((current) => ({
+                    ...current,
+                    closedMessage: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="form-success-title">Success title</Label>
+                <Input
+                  id="form-success-title"
+                  value={settings.successTitle}
+                  onChange={(event) =>
+                    setSettings((current) => ({
+                      ...current,
+                      successTitle: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="form-redirect-url">Redirect URL</Label>
+                <Input
+                  id="form-redirect-url"
+                  value={settings.redirectUrl}
+                  placeholder="/thank-you or https://example.com"
+                  onChange={(event) =>
+                    setSettings((current) => ({
+                      ...current,
+                      redirectUrl: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="form-success-message">Success message</Label>
+              <Textarea
+                id="form-success-message"
+                value={settings.successMessage}
+                onChange={(event) =>
+                  setSettings((current) => ({
+                    ...current,
+                    successMessage: event.target.value,
+                  }))
+                }
+              />
+            </div>
           </CardContent>
         </Card>
 

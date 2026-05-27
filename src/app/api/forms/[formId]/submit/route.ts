@@ -7,6 +7,7 @@ import { createRecordAndSubmission } from "@/lib/data/modeling";
 import { db } from "@/lib/db/client";
 import { forms } from "@/lib/db/schema";
 import { validateForm, type FormSchema } from "@/lib/forms/field-schema";
+import { normalizeFormSettings } from "@/lib/forms/settings";
 
 export async function POST(
   request: Request,
@@ -21,6 +22,13 @@ export async function POST(
 
     if (!form || form.status !== "published") {
       return NextResponse.json({ error: "Form not found" }, { status: 404 });
+    }
+    const settings = normalizeFormSettings(form.settings);
+    if (!settings.collectingEnabled) {
+      return NextResponse.json(
+        { error: "Form is not accepting responses" },
+        { status: 409 }
+      );
     }
 
     const data = body.data || {};

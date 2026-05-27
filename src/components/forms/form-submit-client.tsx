@@ -6,13 +6,16 @@ import { CheckCircle2 } from "lucide-react";
 import { FormRenderer } from "@/components/forms/form-renderer";
 import { Card, CardContent } from "@/components/ui/card";
 import type { FormSchema } from "@/lib/forms/field-schema";
+import type { FormSettings } from "@/lib/forms/settings";
 
 export function FormSubmitClient({
   formId,
   schema,
+  settings,
 }: {
   formId: string;
   schema: FormSchema;
+  settings: FormSettings;
 }) {
   const [submitted, setSubmitted] = useState(false);
 
@@ -22,9 +25,9 @@ export function FormSubmitClient({
         <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
           <CheckCircle2 className="size-10 text-primary" />
           <div>
-            <h2 className="text-xl font-semibold">Submission received</h2>
+            <h2 className="text-xl font-semibold">{settings.successTitle}</h2>
             <p className="text-sm text-muted-foreground">
-              Your response has been saved.
+              {settings.successMessage}
             </p>
           </div>
         </CardContent>
@@ -44,6 +47,10 @@ export function FormSubmitClient({
         });
         if (!response.ok) {
           throw new Error("Failed to submit form");
+        }
+        if (settings.redirectUrl) {
+          window.location.href = settings.redirectUrl;
+          return;
         }
         setSubmitted(true);
       }}

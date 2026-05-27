@@ -62,6 +62,10 @@ test.describe("Forms module", () => {
     await page
       .getByPlaceholder("Describe what this form collects.")
       .fill("Captures a customer's contact details and source.");
+    await page.getByLabel("Success title").fill("Thanks from QA");
+    await page
+      .getByLabel("Success message")
+      .fill("We saved your customer intake response.");
 
     await page.getByTestId("add-field-text").click();
     await page.getByLabel("Label").fill("Full name");
@@ -102,14 +106,17 @@ test.describe("Forms module", () => {
     await page.getByLabel("Email address").fill("ada@example.com");
     await page.getByLabel("Lead source").selectOption("referral");
     await page.getByRole("button", { name: "Submit response" }).click();
-    await expect(page.getByText("Submission received")).toBeVisible();
+    await expect(page.getByText("Thanks from QA")).toBeVisible();
+    await expect(
+      page.getByText("We saved your customer intake response.")
+    ).toBeVisible();
 
     await page.goto(`/forms/${formId}`);
     await page.getByLabel("Full name").fill("Bob Stone");
     await page.getByLabel("Email address").fill("bob@example.com");
     await page.getByLabel("Lead source").selectOption("website");
     await page.getByRole("button", { name: "Submit response" }).click();
-    await expect(page.getByText("Submission received")).toBeVisible();
+    await expect(page.getByText("Thanks from QA")).toBeVisible();
 
     const submissions = await page.request.get(`/api/forms/${formId}/submissions`);
     expect(submissions.ok()).toBeTruthy();
@@ -305,6 +312,13 @@ test.describe("Forms module", () => {
       data: {
         name: "Lifecycle QA",
         description: "Lifecycle coverage",
+        settings: {
+          collectingEnabled: false,
+          closedMessage: "Lifecycle form is paused.",
+          successTitle: "Done",
+          successMessage: "Saved",
+          redirectUrl: "",
+        },
         schema: {
           fields: [
             {
@@ -332,7 +346,13 @@ test.describe("Forms module", () => {
     expect(publishedForm.status).toBe("published");
 
     await page.goto(`/forms/${publishedForm.id}`);
-    await expect(page.getByRole("heading", { name: "Lifecycle QA" })).toBeVisible();
+    await expect(page.getByText("Form closed")).toBeVisible();
+    await expect(page.getByText("Lifecycle form is paused.")).toBeVisible();
+    const closedSubmission = await page.request.post(
+      `/api/forms/${publishedForm.id}/submit`,
+      { data: { data: { field_lifecycle_name: "Closed" } } }
+    );
+    expect(closedSubmission.status()).toBe(409);
 
     const editResponse = await page.request.put(`/api/forms/${publishedForm.id}`, {
       data: {
@@ -340,6 +360,13 @@ test.describe("Forms module", () => {
         entityId: publishedForm.entityId,
         name: "Lifecycle QA draft",
         description: "Lifecycle coverage after edit",
+        settings: {
+          collectingEnabled: true,
+          closedMessage: "Lifecycle form is paused.",
+          successTitle: "Lifecycle saved",
+          successMessage: "The lifecycle response was saved.",
+          redirectUrl: "",
+        },
         schema: publishedForm.schema,
       },
     });
@@ -357,6 +384,8 @@ test.describe("Forms module", () => {
     expect(republishResponse.ok()).toBeTruthy();
     const { form: republishedForm } = await republishResponse.json();
     expect(republishedForm.status).toBe("published");
+    await page.goto(`/forms/${publishedForm.id}`);
+    await expect(page.getByRole("heading", { name: "Lifecycle QA draft" })).toBeVisible();
 
     const archiveResponse = await page.request.patch(
       `/api/forms/${publishedForm.id}`,
@@ -663,7 +692,7 @@ test.describe("Forms module", () => {
     await expect(page.getByText("Financials")).toBeVisible();
     await expect(page.getByText("Amount")).toBeVisible();
     await expect(page.getByText("Escalation A")).toBeVisible();
-    await expect(page.getByText("17")).toBeVisible();
+    await expect(page.getByRole("cell", { name: "17" })).toBeVisible();
     await expect(page.getByRole("spinbutton", { name: "Case value" })).toHaveCount(0);
 
     await page.getByRole("textbox", { name: /Case title/ }).fill("Escalation B");

@@ -7,6 +7,7 @@ import { ensureDefaultApp, ensureEntityForForm } from "@/lib/data/modeling";
 import { db } from "@/lib/db/client";
 import { apps, forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
+import { sanitizeFormSettings } from "@/lib/forms/settings";
 
 export async function GET(
   _request: Request,
@@ -82,6 +83,7 @@ export async function PUT(
         name,
         description: body.description || null,
         schema: model.schema,
+        settings: sanitizeFormSettings(body.settings),
         status: existing.status === "published" ? "draft" : existing.status,
         version:
           existing.status === "published"

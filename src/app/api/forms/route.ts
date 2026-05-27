@@ -7,6 +7,7 @@ import { ensureDefaultApp, ensureEntityForForm } from "@/lib/data/modeling";
 import { db } from "@/lib/db/client";
 import { apps, entities, formSubmissions, forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
+import { sanitizeFormSettings } from "@/lib/forms/settings";
 
 export async function GET() {
   try {
@@ -83,6 +84,7 @@ export async function POST(request: Request) {
         name,
         description: body.description || null,
         schema: model.schema,
+        settings: sanitizeFormSettings(body.settings),
       })
       .returning();
 
