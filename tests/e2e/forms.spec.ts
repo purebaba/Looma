@@ -508,6 +508,21 @@ test.describe("Forms module", () => {
     await page.goto(`/studio/interfaces/forms/${publishedForm.id}`);
     await expect(page.getByText("Version 2: Lifecycle QA draft")).toBeVisible();
     await expect(page.getByText("Version 1: Lifecycle QA")).toBeVisible();
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByTestId("restore-version-1").click();
+    await expect(page.getByRole("heading", { name: "Lifecycle QA" })).toBeVisible();
+    await expect(page.getByText("Version 3")).toBeVisible();
+    await page.goto(`/forms/${publishedForm.id}`);
+    await expect(page.getByRole("heading", { name: "Lifecycle QA draft" })).toBeVisible();
+    const publishRestoredResponse = await page.request.post(
+      `/api/forms/${publishedForm.id}/publish`
+    );
+    expect(publishRestoredResponse.ok()).toBeTruthy();
+    await page.goto(`/forms/${publishedForm.id}`);
+    await expect(page.getByText("Form closed")).toBeVisible();
+    await expect(page.getByText("Lifecycle form is paused.")).toBeVisible();
+    await page.goto(`/studio/interfaces/forms/${publishedForm.id}`);
+    await expect(page.getByText("Version 3: Lifecycle QA")).toBeVisible();
 
     const archiveResponse = await page.request.patch(
       `/api/forms/${publishedForm.id}`,

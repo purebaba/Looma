@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { FormBuilder } from "@/components/forms/form-builder";
+import { FormVersionActions } from "@/components/forms/form-version-actions";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -213,7 +214,14 @@ export default async function EditFormPage({
                         : "recently"}
                     </p>
                   </div>
-                  <Badge variant="secondary">Published snapshot</Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary">Published snapshot</Badge>
+                    <FormVersionActions
+                      formId={form.id}
+                      versionId={version.id}
+                      version={version.version}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
