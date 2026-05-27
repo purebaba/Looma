@@ -6,7 +6,11 @@ import { requireResourceAccess } from "@/lib/auth/organization";
 import { db } from "@/lib/db/client";
 import { formSubmissions, forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
-import { submissionsToCsv } from "@/lib/forms/submissions";
+import {
+  filterSubmissions,
+  sortSubmissions,
+  submissionsToCsv,
+} from "@/lib/forms/submissions";
 
 function filenameFor(name: string) {
   return `${name
@@ -17,7 +21,7 @@ function filenameFor(name: string) {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ formId: string }> }
 ) {
   try {
@@ -34,10 +38,23 @@ export async function GET(
       .from(formSubmissions)
       .where(eq(formSubmissions.formId, form.id))
       .orderBy(desc(formSubmissions.createdAt));
+    const searchParams = new URL(request.url).searchParams;
+    const schema = form.schema as FormSchema;
+    const sort = searchParams.get("sort") === "asc" ? "asc" : "desc";
+    const filteredSubmissions = sortSubmissions(
+      filterSubmissions({
+        schema,
+        submissions,
+        query: searchParams.get("q"),
+        fieldId: searchParams.get("fieldId"),
+        fieldValue: searchParams.get("fieldValue"),
+      }),
+      sort
+    );
 
     const csv = submissionsToCsv({
-      schema: form.schema as FormSchema,
-      submissions,
+      schema,
+      submissions: filteredSubmissions,
     });
 
     return new NextResponse(csv, {

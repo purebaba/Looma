@@ -104,12 +104,23 @@ test.describe("Forms module", () => {
     await page.getByRole("button", { name: "Submit response" }).click();
     await expect(page.getByText("Submission received")).toBeVisible();
 
+    await page.goto(`/forms/${formId}`);
+    await page.getByLabel("Full name").fill("Bob Stone");
+    await page.getByLabel("Email address").fill("bob@example.com");
+    await page.getByLabel("Lead source").selectOption("website");
+    await page.getByRole("button", { name: "Submit response" }).click();
+    await expect(page.getByText("Submission received")).toBeVisible();
+
     const submissions = await page.request.get(`/api/forms/${formId}/submissions`);
     expect(submissions.ok()).toBeTruthy();
     const body = await submissions.json();
-    expect(body.submissions).toHaveLength(1);
-    expect(body.submissions[0].entityRecordId).toBeTruthy();
-    expect(Object.values(body.submissions[0].data)).toEqual(
+    expect(body.submissions).toHaveLength(2);
+    const adaSubmission = body.submissions.find((submission: { data: Record<string, unknown> }) =>
+      Object.values(submission.data).includes("Ada Lovelace")
+    ) as { id: string; entityRecordId: string; data: Record<string, unknown> };
+    expect(adaSubmission).toBeTruthy();
+    expect(adaSubmission.entityRecordId).toBeTruthy();
+    expect(Object.values(adaSubmission.data)).toEqual(
       expect.arrayContaining(["Ada Lovelace", "ada@example.com", "referral"])
     );
 
@@ -128,9 +139,12 @@ test.describe("Forms module", () => {
     );
     expect(records.ok()).toBeTruthy();
     const recordsBody = await records.json();
-    expect(recordsBody.records).toHaveLength(1);
-    expect(recordsBody.records[0].id).toBe(body.submissions[0].entityRecordId);
-    expect(Object.values(recordsBody.records[0].data)).toEqual(
+    expect(recordsBody.records).toHaveLength(2);
+    const adaRecord = recordsBody.records.find(
+      (record: { id: string }) => record.id === adaSubmission.entityRecordId
+    );
+    expect(adaRecord).toBeTruthy();
+    expect(Object.values(adaRecord.data)).toEqual(
       expect.arrayContaining(["Ada Lovelace", "ada@example.com", "referral"])
     );
 
@@ -141,11 +155,33 @@ test.describe("Forms module", () => {
     await expect(page.getByText("Ada Lovelace")).toBeVisible();
     await expect(page.getByText("ada@example.com")).toBeVisible();
     await expect(page.getByText("referral")).toBeVisible();
+    await expect(page.getByText("Bob Stone")).toBeVisible();
+    await page.getByLabel("Search").fill("Ada");
+    await page.getByRole("button", { name: "Apply" }).click();
+    await expect(page).toHaveURL(/q=Ada/);
+    await expect(page.getByText("Filtered from 2 total submissions.")).toBeVisible();
+    await expect(page.getByText("Ada Lovelace")).toBeVisible();
+    await expect(page.getByText("Bob Stone")).not.toBeVisible();
+    await page.getByRole("link", { name: "Reset" }).click();
+    await page.getByLabel("Field", { exact: true }).selectOption({
+      label: "Lead source",
+    });
+    await page.getByLabel("Field contains").fill("website");
+    await page.getByLabel("Sort").selectOption("asc");
+    await page.getByRole("button", { name: "Apply" }).click();
+    await expect(page).toHaveURL(/fieldValue=website/);
+    await expect(page.getByText("Bob Stone")).toBeVisible();
+    await expect(page.getByText("Ada Lovelace")).not.toBeVisible();
+    await page.getByRole("link", { name: "Reset" }).click();
     await expect(page.getByRole("link", { name: "Export CSV" })).toBeVisible();
-    await page.getByRole("link", { name: "View" }).click();
+    await page
+      .getByRole("row")
+      .filter({ hasText: "Ada Lovelace" })
+      .getByRole("link", { name: "View" })
+      .click();
     await expect(page).toHaveURL(
       new RegExp(
-        `/studio/interfaces/forms/${formId}/submissions/${body.submissions[0].id}$`
+        `/studio/interfaces/forms/${formId}/submissions/[0-9a-f-]+$`
       )
     );
     await expect(
@@ -159,7 +195,7 @@ test.describe("Forms module", () => {
     await page.getByRole("link", { name: "Responses" }).click();
 
     const exportResponse = await page.request.get(
-      `/api/forms/${formId}/submissions/export`
+      `/api/forms/${formId}/submissions/export?q=Ada`
     );
     expect(exportResponse.ok()).toBeTruthy();
     expect(exportResponse.headers()["content-type"]).toContain("text/csv");
@@ -168,6 +204,7 @@ test.describe("Forms module", () => {
     expect(csv).toContain("Full name");
     expect(csv).toContain("Ada Lovelace");
     expect(csv).toContain("ada@example.com");
+    expect(csv).not.toContain("Bob Stone");
 
     await page.goto(`/studio/data/entities/${createdForm.entityId}/records`);
     await expect(
