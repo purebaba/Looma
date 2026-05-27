@@ -25,10 +25,12 @@ import {
   Calendar,
   CheckSquare,
   ChevronDown,
+  Database,
   ExternalLink,
   GripVertical,
   Hash,
   Inbox,
+  Link2,
   Mail,
   Phone,
   Plus,
@@ -149,6 +151,7 @@ export function FormBuilder({
   const availableEntities = entities.filter((entity) => entity.appId === appId);
   const selectedEntity =
     availableEntities.find((entity) => entity.id === entityId) || null;
+  const selectedEntityFields = selectedEntity?.fields || [];
   const importedEntityFieldIds = new Set(
     fields.map((field) => field.entityFieldId).filter(Boolean)
   );
@@ -484,6 +487,7 @@ export function FormBuilder({
                       <SortableField
                         key={field.id}
                         field={field}
+                        entityFields={selectedEntityFields}
                         selected={field.id === selectedId}
                         onSelect={() => setSelectedId(field.id)}
                         onDelete={() => deleteField(field.id)}
@@ -631,7 +635,11 @@ export function FormBuilder({
         </CardHeader>
         <CardContent>
           {selectedField ? (
-            <FieldProperties field={selectedField} onChange={updateField} />
+            <FieldProperties
+              entityFields={selectedEntityFields}
+              field={selectedField}
+              onChange={updateField}
+            />
           ) : (
             <p className="text-sm text-muted-foreground">
               Select a field on the canvas to edit its settings.
@@ -659,11 +667,13 @@ function EmptyCanvas() {
 
 function SortableField({
   field,
+  entityFields,
   selected,
   onSelect,
   onDelete,
 }: {
   field: FieldSchema;
+  entityFields: EntityFieldOption[];
   selected: boolean;
   onSelect: () => void;
   onDelete: () => void;
@@ -675,6 +685,10 @@ function SortableField({
     transform: CSS.Transform.toString(transform),
     transition,
   };
+  const boundEntityField = entityFields.find(
+    (entityField) => entityField.id === field.entityFieldId
+  );
+  const dataKey = field.dataKey || slugifyFieldLabel(field.label || field.id);
 
   return (
     <div
@@ -702,6 +716,38 @@ function SortableField({
         <p className="truncate text-xs text-muted-foreground">
           {field.placeholder || field.helpText || "No helper text"}
         </p>
+        <div
+          className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+          data-testid="field-binding-summary"
+        >
+          {boundEntityField ? (
+            <>
+              <Badge variant="outline" className="gap-1">
+                <Link2 className="size-3" />
+                Bound
+              </Badge>
+              <span className="truncate">
+                {boundEntityField.name} · {boundEntityField.slug}
+              </span>
+            </>
+          ) : field.entityFieldId ? (
+            <>
+              <Badge variant="outline" className="gap-1">
+                <Link2 className="size-3" />
+                Missing binding
+              </Badge>
+              <span className="truncate">{dataKey}</span>
+            </>
+          ) : (
+            <>
+              <Badge variant="outline" className="gap-1">
+                <Database className="size-3" />
+                Creates field
+              </Badge>
+              <span className="truncate">{dataKey}</span>
+            </>
+          )}
+        </div>
       </div>
       <Badge variant="outline">{field.appearance.width}/12</Badge>
       <Button
@@ -721,15 +767,24 @@ function SortableField({
 
 function FieldProperties({
   field,
+  entityFields,
   onChange,
 }: {
   field: FieldSchema;
+  entityFields: EntityFieldOption[];
   onChange: (fieldId: string, patch: Partial<FieldSchema>) => void;
 }) {
   const required = field.validation.some((rule) => rule.type === "required");
   const min = field.validation.find((rule) => rule.type === "min")?.value || "";
   const max = field.validation.find((rule) => rule.type === "max")?.value || "";
   const pattern = field.validation.find((rule) => rule.type === "pattern")?.value || "";
+  const boundEntityField = entityFields.find(
+    (entityField) => entityField.id === field.entityFieldId
+  );
+  const compatibleEntityFields = entityFields.filter((entityField) =>
+    canBindFieldToEntityField(field, entityField)
+  );
+  const dataKey = field.dataKey || slugifyFieldLabel(field.label || field.id);
 
   function setValidation(type: ValidationRule["type"], value: string | number | boolean) {
     let next = field.validation.filter((rule) => rule.type !== type);
@@ -749,8 +804,74 @@ function FieldProperties({
     onChange(field.id, { validation: next });
   }
 
+  function setEntityBinding(entityFieldId: string) {
+    if (!entityFieldId) {
+      onChange(field.id, {
+        entityFieldId: undefined,
+        dataKey: slugifyFieldLabel(field.label || field.id),
+      });
+      return;
+    }
+    const entityField = entityFields.find((item) => item.id === entityFieldId);
+    if (!entityField || !canBindFieldToEntityField(field, entityField)) return;
+    onChange(field.id, {
+      entityFieldId: entityField.id,
+      dataKey: entityField.slug,
+    });
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      <div className="rounded-md border bg-muted/30 p-3">
+        <div className="flex items-start gap-2">
+          <Database className="mt-0.5 size-4 text-muted-foreground" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">Data binding</p>
+            <p className="text-xs text-muted-foreground">
+              {boundEntityField
+                ? `Writes to ${boundEntityField.name} (${boundEntityField.slug}).`
+                : "This field will create or sync a business data field on save."}
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="field-entity-binding">Entity field</Label>
+        <select
+          id="field-entity-binding"
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          value={field.entityFieldId || ""}
+          onChange={(event) => setEntityBinding(event.target.value)}
+        >
+          <option value="">Create/sync a new entity field</option>
+          {compatibleEntityFields.map((entityField) => (
+            <option key={entityField.id} value={entityField.id}>
+              {entityField.name} · {entityField.slug}
+            </option>
+          ))}
+        </select>
+        {entityFields.length > 0 && !compatibleEntityFields.length ? (
+          <p className="text-xs text-muted-foreground">
+            No compatible {field.type} fields exist on the selected Entity.
+          </p>
+        ) : null}
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="field-data-key">Data key</Label>
+        <Input
+          id="field-data-key"
+          value={dataKey}
+          disabled={Boolean(boundEntityField)}
+          onChange={(event) =>
+            onChange(field.id, {
+              dataKey: slugifyFieldLabel(event.target.value),
+            })
+          }
+        />
+        <p className="text-xs text-muted-foreground">
+          Stored on Entity Records as this JSON key.
+        </p>
+      </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="field-label">Label</Label>
         <Input
@@ -859,4 +980,20 @@ function FieldProperties({
       ) : null}
     </div>
   );
+}
+
+function canBindFieldToEntityField(
+  field: FieldSchema,
+  entityField: EntityFieldOption
+) {
+  return field.type === entityField.type;
+}
+
+function slugifyFieldLabel(value: string) {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "field";
 }

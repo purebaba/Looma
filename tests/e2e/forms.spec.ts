@@ -68,7 +68,11 @@ test.describe("Forms module", () => {
       .fill("We saved your customer intake response.");
 
     await page.getByTestId("add-field-text").click();
+    await expect(page.getByTestId("builder-field-text")).toContainText(
+      "Creates field"
+    );
     await page.getByLabel("Label").fill("Full name");
+    await expect(page.getByLabel("Data key")).toHaveValue("full-name");
     await page.getByLabel("Placeholder").fill("Ada Lovelace");
     await page.getByLabel("Help text").fill("Use the customer's legal name.");
     await page.getByLabel("Required").check();
@@ -778,8 +782,18 @@ test.describe("Forms module", () => {
     await expect(page.getByTestId("builder-field-text")).toContainText(
       "Requester name"
     );
+    await expect(page.getByTestId("builder-field-text")).toContainText("Bound");
+    await expect(page.getByTestId("builder-field-text")).toContainText(
+      "requester-name"
+    );
     await expect(page.getByTestId("builder-field-select")).toContainText(
       "Priority"
+    );
+    await expect(page.getByTestId("builder-field-select")).toContainText("Bound");
+    await page.getByTestId("builder-field-text").click();
+    await expect(page.getByText("Writes to Requester name")).toBeVisible();
+    await expect(page.getByLabel("Entity field")).toContainText(
+      "Requester name · requester-name"
     );
 
     await page.getByRole("button", { name: "Preview" }).click();
