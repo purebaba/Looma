@@ -115,6 +115,7 @@ export function FormBuilder({
     schema: FormSchema;
     settings?: unknown;
     status: string | null;
+    hasPublishedVersion?: boolean;
   };
   apps?: AppOption[];
   entities?: EntityOption[];
@@ -583,7 +584,7 @@ export function FormBuilder({
               status={initialForm.status}
             />
           ) : null}
-          {initialForm?.status === "published" ? (
+          {initialForm?.hasPublishedVersion && initialForm.status !== "archived" ? (
             <>
               {initialForm.entityId ? (
                 <Button asChild variant="outline">

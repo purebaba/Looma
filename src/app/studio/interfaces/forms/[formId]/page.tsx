@@ -23,6 +23,7 @@ import {
   forms,
 } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
+import { getFormVersions } from "@/lib/forms/versions";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,13 @@ export default async function EditFormPage({
     );
   }
 
-  const [appOptions, entityRows, submissionCount, boundEntity] = await Promise.all([
+  const [
+    appOptions,
+    entityRows,
+    submissionCount,
+    boundEntity,
+    versions,
+  ] = await Promise.all([
     db
       .select({ id: apps.id, name: apps.name })
       .from(apps)
@@ -67,6 +74,7 @@ export default async function EditFormPage({
           ),
         })
       : Promise.resolve(null),
+    getFormVersions(form.id),
   ]);
   const entityOptions = await Promise.all(
     entityRows.map(async (entity) => ({
@@ -96,7 +104,7 @@ export default async function EditFormPage({
         description="Manage the form interface, public fill flow, responses, and the records it creates."
         actions={
           <div className="flex flex-wrap gap-2">
-            {form.status === "published" ? (
+            {versions.length > 0 && form.status !== "archived" ? (
               <Button asChild>
                 <Link href={`/forms/${form.id}`}>
                   <ExternalLink className="size-4" />
@@ -125,6 +133,9 @@ export default async function EditFormPage({
         <Badge variant={form.status === "published" ? "default" : "secondary"}>
           {form.status}
         </Badge>
+        {versions.length > 0 && form.status !== "archived" ? (
+          <Badge variant="secondary">Public version live</Badge>
+        ) : null}
         <span className="text-sm text-muted-foreground">
           Version {form.version || 1}
         </span>
@@ -143,7 +154,7 @@ export default async function EditFormPage({
               Builder
             </Link>
           </Button>
-          {form.status === "published" ? (
+          {versions.length > 0 && form.status !== "archived" ? (
             <Button asChild variant="ghost" size="sm">
               <Link href={`/forms/${form.id}`}>
                 <ExternalLink className="size-4" />
@@ -173,6 +184,46 @@ export default async function EditFormPage({
           </Button>
         </CardContent>
       </Card>
+      <Card>
+        <CardContent className="grid gap-3 p-4">
+          <div>
+            <h3 className="font-semibold">Version history</h3>
+            <p className="text-sm text-muted-foreground">
+              Published snapshots stay available to public submitters while you edit a new draft.
+            </p>
+          </div>
+          {versions.length ? (
+            <div className="grid gap-2">
+              {versions.map((version) => (
+                <div
+                  key={version.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                >
+                  <div>
+                    <p className="font-medium">
+                      Version {version.version}: {version.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Published{" "}
+                      {version.publishedAt
+                        ? new Intl.DateTimeFormat("en", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          }).format(version.publishedAt)
+                        : "recently"}
+                    </p>
+                  </div>
+                  <Badge variant="secondary">Published snapshot</Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Publish this form to create the first immutable snapshot.
+            </p>
+          )}
+        </CardContent>
+      </Card>
       <FormBuilder
         apps={appOptions}
         entities={entityOptions}
@@ -185,6 +236,7 @@ export default async function EditFormPage({
           schema: form.schema as FormSchema,
           settings: form.settings,
           status: form.status,
+          hasPublishedVersion: versions.length > 0,
         }}
       />
     </div>

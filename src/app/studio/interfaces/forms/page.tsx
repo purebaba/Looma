@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/table";
 import { requireResourceAccess } from "@/lib/auth/organization";
 import { db } from "@/lib/db/client";
-import { entities, formSubmissions, forms } from "@/lib/db/schema";
+import { entities, formSubmissions, formVersions, forms } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -41,10 +41,15 @@ export default async function FormsPage() {
             where: eq(entities.id, form.entityId),
           })
         : null;
+      const [publishedVersions] = await db
+        .select({ value: count() })
+        .from(formVersions)
+        .where(eq(formVersions.formId, form.id));
       return {
         ...form,
         entityName: entity?.name ?? null,
         submissionCount: submissionCount?.value ?? 0,
+        hasPublishedVersion: (publishedVersions?.value ?? 0) > 0,
       };
     })
   );
@@ -150,7 +155,7 @@ export default async function FormsPage() {
                             Responses
                           </Link>
                         </Button>
-                        {form.status === "published" ? (
+                        {form.hasPublishedVersion && form.status !== "archived" ? (
                           <Button asChild size="sm">
                             <Link href={`/forms/${form.id}`}>
                               <ExternalLink className="size-4" />

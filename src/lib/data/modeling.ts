@@ -202,12 +202,16 @@ export function mapSubmissionToRecordData(
 export async function createRecordAndSubmission({
   form,
   data,
+  schema,
+  formVersionId,
   submittedBy,
   ipAddress,
   userAgent,
 }: {
   form: typeof forms.$inferSelect;
   data: Record<string, unknown>;
+  schema?: FormSchema;
+  formVersionId?: string | null;
   submittedBy?: string;
   ipAddress?: string | null;
   userAgent?: string | null;
@@ -216,8 +220,8 @@ export async function createRecordAndSubmission({
     throw new Error("Published form is not bound to an app and entity.");
   }
 
-  const schema = form.schema as FormSchema;
-  const recordData = mapSubmissionToRecordData(data, schema);
+  const submissionSchema = schema || (form.schema as FormSchema);
+  const recordData = mapSubmissionToRecordData(data, submissionSchema);
   const [record] = await db
     .insert(entityRecords)
     .values({
@@ -241,6 +245,7 @@ export async function createRecordAndSubmission({
     .insert(formSubmissions)
     .values({
       formId: form.id,
+      formVersionId,
       entityRecordId: record.id,
       data,
       submittedBy,

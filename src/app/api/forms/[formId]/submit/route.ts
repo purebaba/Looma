@@ -6,13 +6,17 @@ import { auth } from "@/lib/auth/config";
 import { createRecordAndSubmission } from "@/lib/data/modeling";
 import { db } from "@/lib/db/client";
 import { forms } from "@/lib/db/schema";
-import { validateForm, type FormSchema } from "@/lib/forms/field-schema";
-import { normalizeFormSettings } from "@/lib/forms/settings";
+import { validateForm } from "@/lib/forms/field-schema";
 import {
   checkSubmissionRateLimit,
   getClientIp,
   hasHoneypotValue,
 } from "@/lib/forms/submission-guard";
+import {
+  formVersionSchema,
+  formVersionSettings,
+  getLatestPublishedFormVersion,
+} from "@/lib/forms/versions";
 
 export async function POST(
   request: Request,
@@ -26,10 +30,14 @@ export async function POST(
       where: eq(forms.id, formId),
     });
 
-    if (!form || form.status !== "published") {
+    const publishedVersion = form
+      ? await getLatestPublishedFormVersion(form.id)
+      : null;
+
+    if (!form || form.status === "archived" || !publishedVersion) {
       return NextResponse.json({ error: "Form not found" }, { status: 404 });
     }
-    const settings = normalizeFormSettings(form.settings);
+    const settings = formVersionSettings(publishedVersion);
     if (!settings.collectingEnabled) {
       return NextResponse.json(
         { error: "Form is not accepting responses" },
@@ -53,7 +61,8 @@ export async function POST(
     }
 
     const data = body.data || {};
-    const validation = validateForm(data, form.schema as FormSchema);
+    const schema = formVersionSchema(publishedVersion);
+    const validation = validateForm(data, schema);
     if (!validation.valid) {
       return NextResponse.json(
         { error: "Invalid submission", errors: validation.errors },
@@ -72,6 +81,8 @@ export async function POST(
     const { record, submission } = await createRecordAndSubmission({
       form,
       data,
+      schema,
+      formVersionId: publishedVersion.id,
       submittedBy: session?.user?.id,
       ipAddress: clientIp,
       userAgent: request.headers.get("user-agent"),

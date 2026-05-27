@@ -26,6 +26,10 @@ import {
   sortSubmissions,
   submissionFields,
 } from "@/lib/forms/submissions";
+import {
+  formVersionSchema,
+  getLatestPublishedFormVersion,
+} from "@/lib/forms/versions";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +61,10 @@ export default async function FormSubmissionsPage({
     );
   }
 
-  const schema = form.schema as FormSchema;
+  const publishedVersion = await getLatestPublishedFormVersion(form.id);
+  const schema = publishedVersion
+    ? formVersionSchema(publishedVersion)
+    : (form.schema as FormSchema);
   const fields = submissionFields(schema);
   const submissions = await db
     .select()

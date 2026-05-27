@@ -269,11 +269,29 @@ export const forms = pgTable("forms", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const formVersions = pgTable("form_versions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  formId: uuid("form_id")
+    .notNull()
+    .references(() => forms.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  schema: jsonb("schema").notNull().default({ fields: [] }),
+  settings: jsonb("settings").default({}),
+  publishedBy: uuid("published_by").references(() => users.id),
+  publishedAt: timestamp("published_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const formSubmissions = pgTable("form_submissions", {
   id: uuid("id").primaryKey().defaultRandom(),
   formId: uuid("form_id")
     .notNull()
     .references(() => forms.id, { onDelete: "cascade" }),
+  formVersionId: uuid("form_version_id").references(() => formVersions.id, {
+    onDelete: "set null",
+  }),
   entityRecordId: uuid("entity_record_id").references(() => entityRecords.id, {
     onDelete: "set null",
   }),
@@ -545,6 +563,10 @@ export const formSubmissionsRelations = relations(formSubmissions, ({ one }) => 
     fields: [formSubmissions.formId],
     references: [forms.id],
   }),
+  formVersion: one(formVersions, {
+    fields: [formSubmissions.formVersionId],
+    references: [formVersions.id],
+  }),
   entityRecord: one(entityRecords, {
     fields: [formSubmissions.entityRecordId],
     references: [entityRecords.id],
@@ -570,6 +592,19 @@ export const formsRelations = relations(forms, ({ one, many }) => ({
   }),
   creator: one(users, {
     fields: [forms.createdBy],
+    references: [users.id],
+  }),
+  submissions: many(formSubmissions),
+  versions: many(formVersions),
+}));
+
+export const formVersionsRelations = relations(formVersions, ({ one, many }) => ({
+  form: one(forms, {
+    fields: [formVersions.formId],
+    references: [forms.id],
+  }),
+  publisher: one(users, {
+    fields: [formVersions.publishedBy],
     references: [users.id],
   }),
   submissions: many(formSubmissions),

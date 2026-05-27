@@ -18,6 +18,10 @@ import { db } from "@/lib/db/client";
 import { formSubmissions, forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
 import { formatSubmissionValue, submissionFields } from "@/lib/forms/submissions";
+import {
+  formVersionSchema,
+  getSubmissionFormVersion,
+} from "@/lib/forms/versions";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +61,13 @@ export default async function FormSubmissionDetailPage({
     );
   }
 
-  const schema = form.schema as FormSchema;
+  const submissionVersion = await getSubmissionFormVersion({
+    formId: form.id,
+    formVersionId: submission.formVersionId,
+  });
+  const schema = submissionVersion
+    ? formVersionSchema(submissionVersion)
+    : (form.schema as FormSchema);
   const fields = submissionFields(schema);
   const data = submission.data as Record<string, unknown>;
 

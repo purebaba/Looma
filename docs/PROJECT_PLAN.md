@@ -78,6 +78,7 @@ App Runtime 面向最终业务用户，用于实际处理业务数据、任务�
 当前已补齐公开提交体验基础：Form settings 支持开启/关闭收集、关闭提示、成功标题/文案和提交后跳转 URL，公开页与提交 API 使用同一套设置。
 当前已补齐公开提交保护基础：公开表单包含 honeypot 反垃圾字段，提交 API 会按表单和客户端短窗口限流，并把服务端错误展示给填写者。
 当前已补齐 Form Detail 控制台基础：表单详情页聚合 Builder、Public form、Responses、Records、Settings 入口，并展示状态、版本、提交数和绑定 Entity。
+当前已补齐 Form 发布快照基础：新增 form_versions，发布会写入不可变快照；公开填写页和提交 API 读取最近发布版本，编辑 draft 时不影响线上表单。
 
 ## 3. 核心架构
 
@@ -221,7 +222,10 @@ forms
   id, organization_id, app_id, entity_id, name, schema, status, version
 
 form_submissions
-  id, form_id, entity_record_id, data, submitted_by, submitted_at
+  id, form_id, form_version_id, entity_record_id, data, submitted_by, submitted_at
+
+form_versions
+  id, form_id, version, name, description, schema, settings, published_by, published_at
 
 workflows
   id, organization_id, app_id, name, type, status, version, definition

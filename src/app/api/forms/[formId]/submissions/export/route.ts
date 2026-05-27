@@ -11,6 +11,10 @@ import {
   sortSubmissions,
   submissionsToCsv,
 } from "@/lib/forms/submissions";
+import {
+  formVersionSchema,
+  getLatestPublishedFormVersion,
+} from "@/lib/forms/versions";
 
 function filenameFor(name: string) {
   return `${name
@@ -39,7 +43,10 @@ export async function GET(
       .where(eq(formSubmissions.formId, form.id))
       .orderBy(desc(formSubmissions.createdAt));
     const searchParams = new URL(request.url).searchParams;
-    const schema = form.schema as FormSchema;
+    const publishedVersion = await getLatestPublishedFormVersion(form.id);
+    const schema = publishedVersion
+      ? formVersionSchema(publishedVersion)
+      : (form.schema as FormSchema);
     const sort = searchParams.get("sort") === "asc" ? "asc" : "desc";
     const filteredSubmissions = sortSubmissions(
       filterSubmissions({

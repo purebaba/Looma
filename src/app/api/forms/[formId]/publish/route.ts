@@ -7,6 +7,7 @@ import { ensureDefaultApp, ensureEntityForForm } from "@/lib/data/modeling";
 import { db } from "@/lib/db/client";
 import { apps, forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
+import { createPublishedFormVersion } from "@/lib/forms/versions";
 
 export async function POST(
   _request: Request,
@@ -53,7 +54,11 @@ export async function POST(
       .returning();
 
     if (!form) return NextResponse.json({ error: "Form not found" }, { status: 404 });
-    return NextResponse.json({ form });
+    const version = await createPublishedFormVersion({
+      form,
+      publishedBy: current.userId,
+    });
+    return NextResponse.json({ form, version });
   } catch (error) {
     return routeError(error);
   }

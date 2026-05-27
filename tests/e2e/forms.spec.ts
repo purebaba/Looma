@@ -94,8 +94,10 @@ test.describe("Forms module", () => {
     await expect(
       page.getByRole("heading", { name: "Customer intake QA" })
     ).toBeVisible();
-    await expect(page.getByText("Version 1")).toBeVisible();
+    await expect(page.getByText("Version 1", { exact: true })).toBeVisible();
     await expect(page.getByText("Entity: Customer intake QA")).toBeVisible();
+    await expect(page.getByText("Version history")).toBeVisible();
+    await expect(page.getByText("Version 1: Customer intake QA")).toBeVisible();
     await expect(page.getByRole("link", { name: "Builder" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Public form" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Responses" }).first()).toBeVisible();
@@ -489,7 +491,11 @@ test.describe("Forms module", () => {
     expect(draftForm.version).toBe((publishedForm.version || 1) + 1);
 
     await page.goto(`/forms/${publishedForm.id}`);
-    await expect(page.getByText("Form unavailable")).toBeVisible();
+    await expect(page.getByText("Form closed")).toBeVisible();
+    await expect(page.getByText("Lifecycle form is paused.")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Lifecycle QA draft" })
+    ).not.toBeVisible();
 
     const republishResponse = await page.request.post(
       `/api/forms/${publishedForm.id}/publish`
@@ -499,6 +505,9 @@ test.describe("Forms module", () => {
     expect(republishedForm.status).toBe("published");
     await page.goto(`/forms/${publishedForm.id}`);
     await expect(page.getByRole("heading", { name: "Lifecycle QA draft" })).toBeVisible();
+    await page.goto(`/studio/interfaces/forms/${publishedForm.id}`);
+    await expect(page.getByText("Version 2: Lifecycle QA draft")).toBeVisible();
+    await expect(page.getByText("Version 1: Lifecycle QA")).toBeVisible();
 
     const archiveResponse = await page.request.patch(
       `/api/forms/${publishedForm.id}`,

@@ -5,8 +5,11 @@ import { FormSubmitClient } from "@/components/forms/form-submit-client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db/client";
 import { forms } from "@/lib/db/schema";
-import type { FormSchema } from "@/lib/forms/field-schema";
-import { normalizeFormSettings } from "@/lib/forms/settings";
+import {
+  formVersionSchema,
+  formVersionSettings,
+  getLatestPublishedFormVersion,
+} from "@/lib/forms/versions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +23,12 @@ export default async function PublicFormPage({
     where: eq(forms.id, formId),
   });
 
-  const settings = form ? normalizeFormSettings(form.settings) : null;
+  const publishedVersion = form
+    ? await getLatestPublishedFormVersion(form.id)
+    : null;
+  const settings = publishedVersion ? formVersionSettings(publishedVersion) : null;
 
-  if (!form || form.status !== "published") {
+  if (!form || form.status === "archived" || !publishedVersion) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-muted p-6">
         <Card className="w-full max-w-lg">
@@ -59,15 +65,17 @@ export default async function PublicFormPage({
         </div>
         <Card>
           <CardHeader>
-            <h1 className="font-semibold leading-none tracking-tight">{form.name}</h1>
-            {form.description ? (
-              <CardDescription>{form.description}</CardDescription>
+            <h1 className="font-semibold leading-none tracking-tight">
+              {publishedVersion.name}
+            </h1>
+            {publishedVersion.description ? (
+              <CardDescription>{publishedVersion.description}</CardDescription>
             ) : null}
           </CardHeader>
           <CardContent>
             <FormSubmitClient
               formId={form.id}
-              schema={form.schema as FormSchema}
+              schema={formVersionSchema(publishedVersion)}
               settings={settings}
             />
           </CardContent>
