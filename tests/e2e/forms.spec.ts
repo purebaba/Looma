@@ -149,7 +149,7 @@ test.describe("Forms module", () => {
     await expect(page.getByText("Ada Lovelace")).toBeVisible();
   });
 
-  test("blocks invalid public submissions with required-field validation", async ({
+  test("blocks invalid public submissions with schema validation", async ({
     page,
     request,
   }) => {
@@ -172,6 +172,26 @@ test.describe("Forms module", () => {
               ],
               appearance: { width: 12, order: 0 },
             },
+            {
+              id: "field_email",
+              type: "email",
+              label: "Work email",
+              placeholder: "",
+              validation: [],
+              appearance: { width: 12, order: 1 },
+            },
+            {
+              id: "field_plan",
+              type: "select",
+              label: "Plan",
+              placeholder: "",
+              options: [
+                { label: "Free", value: "free" },
+                { label: "Pro", value: "pro" },
+              ],
+              validation: [],
+              appearance: { width: 12, order: 2 },
+            },
           ],
         },
       },
@@ -191,6 +211,23 @@ test.describe("Forms module", () => {
       data: { data: { field_required_name: "" } },
     });
     expect(invalidApiSubmission.status()).toBe(400);
+
+    const invalidTypeSubmission = await page.request.post(
+      `/api/forms/${form.id}/submit`,
+      {
+        data: {
+          data: {
+            field_required_name: "Grace Hopper",
+            field_email: "not-an-email",
+            field_plan: "enterprise",
+          },
+        },
+      }
+    );
+    expect(invalidTypeSubmission.status()).toBe(400);
+    const invalidTypeBody = await invalidTypeSubmission.json();
+    expect(invalidTypeBody.errors.field_email).toBe("Work email is invalid");
+    expect(invalidTypeBody.errors.field_plan).toBe("Plan is invalid");
   });
 
   test("creates an app, models an entity, and creates a record manually", async ({

@@ -71,6 +71,7 @@ App Runtime 面向最终业务用户，用于实际处理业务数据、任务�
 当前已实现 Table View MVP：Studio 可为 Entity 配置多个表格视图，App Runtime 的记录列表会按所选视图展示列、默认排序、基础搜索，并支持视图切换。
 当前已实现字段筛选 MVP：Studio 可在 Table View 中标记可筛选字段，App Runtime 会渲染对应筛选控件并按字段值过滤记录。
 当前已实现 Detail View MVP：Studio 可为 Entity 配置默认详情视图，App Runtime 的记录详情会按该配置展示分组、字段标签，并控制哪些字段可编辑。
+当前已强化 Form schema 校验：公开提交 API 会校验必填、min/max、pattern、email、phone、date、datetime、select/radio/checkbox 选项和值类型，不能只依赖浏览器控件。
 
 ## 3. 核心架构
 

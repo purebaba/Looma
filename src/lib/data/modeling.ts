@@ -11,6 +11,7 @@ import {
   forms,
 } from "@/lib/db/schema";
 import type { FieldSchema, FormSchema } from "@/lib/forms/field-schema";
+import { isFieldVisible } from "@/lib/forms/field-schema";
 
 const DEFAULT_APP_NAME = "Core App";
 
@@ -191,6 +192,7 @@ export function mapSubmissionToRecordData(
 ) {
   return schema.fields.reduce<Record<string, unknown>>((recordData, field) => {
     if (field.type === "divider") return recordData;
+    if (!isFieldVisible(data, field)) return recordData;
     const key = field.dataKey || slugify(field.label || field.id);
     recordData[key] = data[field.id];
     return recordData;

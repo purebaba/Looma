@@ -113,17 +113,95 @@ export function validateField(
         }
         break;
       case "pattern":
-        if (
-          typeof value === "string" &&
-          Boolean(rule.value) &&
-          !new RegExp(rule.value as string).test(value)
-        ) {
-          return { valid: false, message: rule.message };
+        if (typeof value === "string" && Boolean(rule.value)) {
+          try {
+            if (!new RegExp(rule.value as string).test(value)) {
+              return { valid: false, message: rule.message };
+            }
+          } catch {
+            return { valid: false, message: rule.message };
+          }
         }
         break;
     }
   }
   return { valid: true };
+}
+
+function isEmpty(value: unknown) {
+  return (
+    value === undefined ||
+    value === null ||
+    value === "" ||
+    (Array.isArray(value) && value.length === 0)
+  );
+}
+
+function isValidDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00`);
+  return !Number.isNaN(date.getTime()) && value === date.toISOString().slice(0, 10);
+}
+
+function isValidDateTime(value: string) {
+  return !Number.isNaN(new Date(value).getTime());
+}
+
+function validateFieldType(
+  value: unknown,
+  field: FieldSchema
+): { valid: boolean; message?: string } {
+  if (isEmpty(value)) return { valid: true };
+
+  const optionValues = new Set((field.options || []).map((option) => option.value));
+  const message = `${field.label} is invalid`;
+
+  switch (field.type) {
+    case "number":
+      return typeof value === "number" && Number.isFinite(value)
+        ? { valid: true }
+        : { valid: false, message };
+    case "email":
+      return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+        ? { valid: true }
+        : { valid: false, message };
+    case "phone":
+      return typeof value === "string" && /^[+()\-\s\d]{6,}$/.test(value)
+        ? { valid: true }
+        : { valid: false, message };
+    case "date":
+      return typeof value === "string" && isValidDate(value)
+        ? { valid: true }
+        : { valid: false, message };
+    case "datetime":
+      return typeof value === "string" && isValidDateTime(value)
+        ? { valid: true }
+        : { valid: false, message };
+    case "select":
+    case "radio":
+      return typeof value === "string" && optionValues.has(value)
+        ? { valid: true }
+        : { valid: false, message };
+    case "checkbox":
+      return Array.isArray(value) && value.every((item) => optionValues.has(String(item)))
+        ? { valid: true }
+        : { valid: false, message };
+    case "switch":
+      return typeof value === "boolean"
+        ? { valid: true }
+        : { valid: false, message };
+    default:
+      return { valid: true };
+  }
+}
+
+export function validateSchemaField(
+  value: unknown,
+  field: FieldSchema
+): { valid: boolean; message?: string } {
+  const ruleResult = validateField(value, field.validation);
+  if (!ruleResult.valid) return ruleResult;
+  return validateFieldType(value, field);
 }
 
 export function validateForm(
@@ -133,11 +211,11 @@ export function validateForm(
   const errors: Record<string, string> = {};
 
   for (const field of schema.fields) {
-    if (field.condition && !evaluateCondition(data, field.condition)) {
+    if (!isFieldVisible(data, field)) {
       continue;
     }
 
-    const result = validateField(data[field.id], field.validation);
+    const result = validateSchemaField(data[field.id], field);
     if (!result.valid) {
       errors[field.id] = result.message || "Invalid field value";
     }
@@ -149,7 +227,14 @@ export function validateForm(
   };
 }
 
-function evaluateCondition(
+export function isFieldVisible(
+  data: Record<string, unknown>,
+  field: FieldSchema
+): boolean {
+  return !field.condition || evaluateCondition(data, field.condition);
+}
+
+export function evaluateCondition(
   data: Record<string, unknown>,
   condition: ConditionalLogic
 ): boolean {

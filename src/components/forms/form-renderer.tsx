@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  isFieldVisible,
   type FieldSchema,
   type FormSchema,
   validateForm,
@@ -41,6 +42,7 @@ export function FormRenderer({
   const [values, setValues] = useState<FormValues>(initialValues);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const visibleFields = schema.fields.filter((field) => isFieldVisible(values, field));
 
   function updateValue(fieldId: string, value: unknown) {
     setValues((current) => ({ ...current, [fieldId]: value }));
@@ -68,7 +70,7 @@ export function FormRenderer({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div className="grid grid-cols-12 gap-4">
-        {schema.fields.map((field) => (
+        {visibleFields.map((field) => (
           <FieldControl
             key={field.id}
             field={field}
