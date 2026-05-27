@@ -301,6 +301,64 @@ test.describe("Forms module", () => {
     expect(invalidTypeBody.errors.field_plan).toBe("Plan is invalid");
   });
 
+  test("guards public submissions against honeypot spam and burst traffic", async ({
+    page,
+    request,
+  }) => {
+    const user = await registerUser(request);
+    await login(page, user);
+
+    const createResponse = await page.request.post("/api/forms", {
+      data: {
+        name: "Submission guard QA",
+        description: "Public submission protection",
+        schema: {
+          fields: [
+            {
+              id: "field_guard_name",
+              type: "text",
+              label: "Guard name",
+              placeholder: "",
+              validation: [
+                { type: "required", message: "Guard name is required" },
+              ],
+              appearance: { width: 12, order: 0 },
+            },
+          ],
+        },
+      },
+    });
+    expect(createResponse.ok()).toBeTruthy();
+    const { form } = await createResponse.json();
+
+    const publishResponse = await page.request.post(`/api/forms/${form.id}/publish`);
+    expect(publishResponse.ok()).toBeTruthy();
+
+    const honeypotSubmission = await page.request.post(`/api/forms/${form.id}/submit`, {
+      data: {
+        data: { field_guard_name: "Spam Bot" },
+        _loomaWebsite: "https://spam.example",
+      },
+      headers: { "x-forwarded-for": "203.0.113.10" },
+    });
+    expect(honeypotSubmission.status()).toBe(400);
+
+    for (let index = 0; index < 10; index += 1) {
+      const response = await page.request.post(`/api/forms/${form.id}/submit`, {
+        data: { data: { field_guard_name: `Burst ${index}` } },
+        headers: { "x-forwarded-for": "203.0.113.11" },
+      });
+      expect(response.status()).toBe(201);
+    }
+
+    const rateLimited = await page.request.post(`/api/forms/${form.id}/submit`, {
+      data: { data: { field_guard_name: "Burst limited" } },
+      headers: { "x-forwarded-for": "203.0.113.11" },
+    });
+    expect(rateLimited.status()).toBe(429);
+    expect(rateLimited.headers()["retry-after"]).toBeTruthy();
+  });
+
   test("manages form lifecycle from published to draft, archived, restored, and deleted", async ({
     page,
     request,

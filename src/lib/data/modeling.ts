@@ -203,11 +203,13 @@ export async function createRecordAndSubmission({
   form,
   data,
   submittedBy,
+  ipAddress,
   userAgent,
 }: {
   form: typeof forms.$inferSelect;
   data: Record<string, unknown>;
   submittedBy?: string;
+  ipAddress?: string | null;
   userAgent?: string | null;
 }) {
   if (!form.appId || !form.entityId) {
@@ -242,6 +244,7 @@ export async function createRecordAndSubmission({
       entityRecordId: record.id,
       data,
       submittedBy,
+      ipAddress,
       userAgent,
     })
     .returning();

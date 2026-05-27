@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,11 +27,13 @@ export function FormRenderer({
   submitLabel = "Submit",
   onSubmit,
   disabled = false,
+  hiddenFields,
 }: {
   schema: FormSchema;
   submitLabel?: string;
   onSubmit?: (values: FormValues) => Promise<void> | void;
   disabled?: boolean;
+  hiddenFields?: ReactNode;
 }) {
   const initialValues = useMemo(() => {
     return schema.fields.reduce<FormValues>((values, field) => {
@@ -41,6 +43,7 @@ export function FormRenderer({
   }, [schema.fields]);
   const [values, setValues] = useState<FormValues>(initialValues);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const visibleFields = schema.fields.filter((field) => isFieldVisible(values, field));
 
@@ -55,6 +58,7 @@ export function FormRenderer({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setSubmitError("");
     const result = validateForm(values, schema);
     setErrors(result.errors);
     if (!result.valid || !onSubmit) return;
@@ -62,6 +66,12 @@ export function FormRenderer({
     setIsSubmitting(true);
     try {
       await onSubmit(values);
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "We could not submit this form. Please try again."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -69,6 +79,7 @@ export function FormRenderer({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      {hiddenFields}
       <div className="grid grid-cols-12 gap-4">
         {visibleFields.map((field) => (
           <FieldControl
@@ -82,9 +93,16 @@ export function FormRenderer({
         ))}
       </div>
       {onSubmit ? (
+        <>
+          {submitError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {submitError}
+            </p>
+          ) : null}
         <Button type="submit" disabled={disabled || isSubmitting}>
           {isSubmitting ? "Submitting..." : submitLabel}
         </Button>
+        </>
       ) : null}
     </form>
   );

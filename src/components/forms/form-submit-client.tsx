@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { FormSchema } from "@/lib/forms/field-schema";
 import type { FormSettings } from "@/lib/forms/settings";
 
+const HONEYPOT_FIELD = "_loomaWebsite";
+
 export function FormSubmitClient({
   formId,
   schema,
@@ -18,6 +20,7 @@ export function FormSubmitClient({
   settings: FormSettings;
 }) {
   const [submitted, setSubmitted] = useState(false);
+  const [honeypot, setHoneypot] = useState("");
 
   if (submitted) {
     return (
@@ -39,14 +42,30 @@ export function FormSubmitClient({
     <FormRenderer
       schema={schema}
       submitLabel="Submit response"
+      hiddenFields={
+        <div className="absolute left-[-10000px] top-auto h-px w-px overflow-hidden">
+          <label htmlFor={HONEYPOT_FIELD}>Website</label>
+          <input
+            id={HONEYPOT_FIELD}
+            name={HONEYPOT_FIELD}
+            tabIndex={-1}
+            autoComplete="off"
+            value={honeypot}
+            onChange={(event) => setHoneypot(event.target.value)}
+          />
+        </div>
+      }
       onSubmit={async (data) => {
         const response = await fetch(`/api/forms/${formId}/submit`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data }),
+          body: JSON.stringify({ data, [HONEYPOT_FIELD]: honeypot }),
         });
         if (!response.ok) {
-          throw new Error("Failed to submit form");
+          const result = await response.json().catch(() => null);
+          throw new Error(
+            result?.error || "We could not submit this form. Please try again."
+          );
         }
         if (settings.redirectUrl) {
           window.location.href = settings.redirectUrl;

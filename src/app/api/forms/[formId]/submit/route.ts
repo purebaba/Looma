@@ -8,6 +8,11 @@ import { db } from "@/lib/db/client";
 import { forms } from "@/lib/db/schema";
 import { validateForm, type FormSchema } from "@/lib/forms/field-schema";
 import { normalizeFormSettings } from "@/lib/forms/settings";
+import {
+  checkSubmissionRateLimit,
+  getClientIp,
+  hasHoneypotValue,
+} from "@/lib/forms/submission-guard";
 
 export async function POST(
   request: Request,
@@ -16,6 +21,7 @@ export async function POST(
   try {
     const { formId } = await params;
     const body = await request.json();
+    const clientIp = getClientIp(request);
     const form = await db.query.forms.findFirst({
       where: eq(forms.id, formId),
     });
@@ -28,6 +34,21 @@ export async function POST(
       return NextResponse.json(
         { error: "Form is not accepting responses" },
         { status: 409 }
+      );
+    }
+
+    if (hasHoneypotValue(body)) {
+      return NextResponse.json({ error: "Invalid submission" }, { status: 400 });
+    }
+
+    const rateLimit = checkSubmissionRateLimit({ formId, clientIp });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many submissions. Please try again later." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfter) },
+        }
       );
     }
 
@@ -52,6 +73,7 @@ export async function POST(
       form,
       data,
       submittedBy: session?.user?.id,
+      ipAddress: clientIp,
       userAgent: request.headers.get("user-agent"),
     });
 
