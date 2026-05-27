@@ -73,6 +73,7 @@ App Runtime 面向最终业务用户，用于实际处理业务数据、任务�
 当前已实现 Detail View MVP：Studio 可为 Entity 配置默认详情视图，App Runtime 的记录详情会按该配置展示分组、字段标签，并控制哪些字段可编辑。
 当前已强化 Form schema 校验：公开提交 API 会校验必填、min/max、pattern、email、phone、date、datetime、select/radio/checkbox 选项和值类型，不能只依赖浏览器控件。
 当前已补齐 Form 生命周期基础：发布后编辑会生成新的 draft 版本，公开填写页只服务 published 状态，表单支持 archive / restore / delete 管理操作。
+当前已补齐 Responses 运营基础：Responses 列表可进入单条提交详情，详情页展示提交快照、审计元数据和关联 Record 跳转，并支持 CSV 导出。
 
 ## 3. 核心架构
 

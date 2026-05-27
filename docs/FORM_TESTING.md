@@ -11,6 +11,7 @@
 - Published forms return to draft with a new version when edited, can be republished, archived, restored, and deleted.
 - Public form accepts a valid submission.
 - Submitted responses are visible from the Studio responses page.
+- Submitted responses have a detail page with audit metadata, linked Entity Record navigation, and CSV export.
 - Submitted responses also create entity records that are visible in Data Studio.
 - Schema validation blocks empty required fields, invalid emails, and option values outside configured choices.
 - Existing Entity fields can be imported into a Form, published, submitted, and stored back as Entity Record data.

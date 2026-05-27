@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { and, desc, eq } from "drizzle-orm";
-import { ArrowLeft, Inbox } from "lucide-react";
+import { ArrowLeft, Download, Eye, Inbox } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -18,16 +18,9 @@ import { requireResourceAccess } from "@/lib/auth/organization";
 import { db } from "@/lib/db/client";
 import { formSubmissions, forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
+import { formatSubmissionValue, submissionFields } from "@/lib/forms/submissions";
 
 export const dynamic = "force-dynamic";
-
-function formatValue(value: unknown) {
-  if (Array.isArray(value)) return value.join(", ");
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (value === undefined || value === null || value === "") return "-";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
-}
 
 export default async function FormSubmissionsPage({
   params,
@@ -50,7 +43,7 @@ export default async function FormSubmissionsPage({
   }
 
   const schema = form.schema as FormSchema;
-  const fields = schema.fields.filter((field) => field.type !== "divider");
+  const fields = submissionFields(schema);
   const submissions = await db
     .select()
     .from(formSubmissions)
@@ -72,6 +65,12 @@ export default async function FormSubmissionsPage({
             </Button>
             <Button asChild variant="outline">
               <Link href={`/studio/interfaces/forms/${form.id}`}>Configure</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/api/forms/${form.id}/submissions/export`}>
+                <Download className="size-4" />
+                Export CSV
+              </Link>
             </Button>
             {form.entityId ? (
               <Button asChild variant="outline">
@@ -119,6 +118,7 @@ export default async function FormSubmissionsPage({
                   {fields.map((field) => (
                     <TableHead key={field.id}>{field.label}</TableHead>
                   ))}
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -141,9 +141,21 @@ export default async function FormSubmissionsPage({
                       </TableCell>
                       {fields.map((field) => (
                         <TableCell key={field.id}>
-                          {formatValue(data[field.id])}
+                          {formatSubmissionValue(data[field.id])}
                         </TableCell>
                       ))}
+                      <TableCell>
+                        <div className="flex justify-end">
+                          <Button asChild variant="outline" size="sm">
+                            <Link
+                              href={`/studio/interfaces/forms/${form.id}/submissions/${submission.id}`}
+                            >
+                              <Eye className="size-4" />
+                              View
+                            </Link>
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   );
                 })}

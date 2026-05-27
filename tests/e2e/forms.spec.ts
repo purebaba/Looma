@@ -141,6 +141,33 @@ test.describe("Forms module", () => {
     await expect(page.getByText("Ada Lovelace")).toBeVisible();
     await expect(page.getByText("ada@example.com")).toBeVisible();
     await expect(page.getByText("referral")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Export CSV" })).toBeVisible();
+    await page.getByRole("link", { name: "View" }).click();
+    await expect(page).toHaveURL(
+      new RegExp(
+        `/studio/interfaces/forms/${formId}/submissions/${body.submissions[0].id}$`
+      )
+    );
+    await expect(
+      page.getByRole("heading", { name: "Customer intake QA response" })
+    ).toBeVisible();
+    await expect(page.getByText("Submitted values")).toBeVisible();
+    await expect(page.getByText("Audit metadata")).toBeVisible();
+    await expect(page.getByText("Ada Lovelace")).toBeVisible();
+    await expect(page.getByText("ada@example.com")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open record" })).toBeVisible();
+    await page.getByRole("link", { name: "Responses" }).click();
+
+    const exportResponse = await page.request.get(
+      `/api/forms/${formId}/submissions/export`
+    );
+    expect(exportResponse.ok()).toBeTruthy();
+    expect(exportResponse.headers()["content-type"]).toContain("text/csv");
+    const csv = await exportResponse.text();
+    expect(csv).toContain("Submission ID,Submitted At,Entity Record ID");
+    expect(csv).toContain("Full name");
+    expect(csv).toContain("Ada Lovelace");
+    expect(csv).toContain("ada@example.com");
 
     await page.goto(`/studio/data/entities/${createdForm.entityId}/records`);
     await expect(
