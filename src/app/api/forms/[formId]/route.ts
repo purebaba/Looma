@@ -82,11 +82,49 @@ export async function PUT(
         name,
         description: body.description || null,
         schema: model.schema,
+        status: existing.status === "published" ? "draft" : existing.status,
+        version:
+          existing.status === "published"
+            ? (existing.version ?? 1) + 1
+            : existing.version,
+        publishedAt: existing.status === "published" ? null : existing.publishedAt,
         updatedAt: new Date(),
       })
       .where(and(eq(forms.id, formId), eq(forms.orgId, current.organization.id)))
       .returning();
 
+    return NextResponse.json({ form });
+  } catch (error) {
+    return routeError(error);
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ formId: string }> }
+) {
+  try {
+    const { formId } = await params;
+    const current = await requireResourceAccess("forms", "update");
+    const body = await request.json();
+    const status = String(body.status || "");
+
+    if (!["draft", "archived"].includes(status)) {
+      return NextResponse.json({ error: "Invalid form status" }, { status: 400 });
+    }
+    const nextStatus = status as "draft" | "archived";
+
+    const [form] = await db
+      .update(forms)
+      .set(
+        nextStatus === "archived"
+          ? { status: nextStatus, publishedAt: null, updatedAt: new Date() }
+          : { status: nextStatus, updatedAt: new Date() }
+      )
+      .where(and(eq(forms.id, formId), eq(forms.orgId, current.organization.id)))
+      .returning();
+
+    if (!form) return NextResponse.json({ error: "Form not found" }, { status: 404 });
     return NextResponse.json({ form });
   } catch (error) {
     return routeError(error);

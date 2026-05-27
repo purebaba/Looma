@@ -38,6 +38,7 @@ import {
   Type,
 } from "lucide-react";
 
+import { FormLifecycleActions } from "@/components/forms/form-lifecycle-actions";
 import { FormRenderer } from "@/components/forms/form-renderer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -355,6 +356,31 @@ export function FormBuilder({
           <CardHeader className="gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex flex-1 flex-col gap-3">
+                {initialForm ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant={
+                        initialForm.status === "published"
+                          ? "default"
+                          : initialForm.status === "archived"
+                            ? "destructive"
+                            : "secondary"
+                      }
+                    >
+                      {initialForm.status}
+                    </Badge>
+                    {initialForm.status === "published" ? (
+                      <p className="text-xs text-muted-foreground">
+                        Saving changes creates a new draft version.
+                      </p>
+                    ) : null}
+                    {initialForm.status === "archived" ? (
+                      <p className="text-xs text-muted-foreground">
+                        Restore this form before publishing it again.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="grid gap-3 rounded-lg border bg-muted/30 p-3 sm:grid-cols-2">
                   <div className="grid gap-2">
                     <Label htmlFor="form-app">App</Label>
@@ -460,6 +486,12 @@ export function FormBuilder({
         </Card>
 
         <div className="flex justify-end gap-2">
+          {initialForm ? (
+            <FormLifecycleActions
+              formId={initialForm.id}
+              status={initialForm.status}
+            />
+          ) : null}
           {initialForm?.status === "published" ? (
             <>
               {initialForm.entityId ? (
@@ -490,7 +522,9 @@ export function FormBuilder({
           </Button>
           <Button
             data-testid="publish-form"
-            disabled={isSaving || fields.length === 0}
+            disabled={
+              isSaving || fields.length === 0 || initialForm?.status === "archived"
+            }
             onClick={() => saveForm(true)}
           >
             Publish

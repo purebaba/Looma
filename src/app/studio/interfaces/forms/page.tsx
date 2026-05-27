@@ -2,6 +2,7 @@ import Link from "next/link";
 import { count, desc, eq } from "drizzle-orm";
 import { ExternalLink, FileText, Inbox, Plus, Settings } from "lucide-react";
 
+import { FormLifecycleActions } from "@/components/forms/form-lifecycle-actions";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -163,6 +164,11 @@ export default async function FormsPage() {
                             </Link>
                           </Button>
                         )}
+                        <FormLifecycleActions
+                          formId={form.id}
+                          status={form.status}
+                          compact
+                        />
                       </div>
                     </TableCell>
                   </TableRow>

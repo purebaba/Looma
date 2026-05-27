@@ -230,6 +230,100 @@ test.describe("Forms module", () => {
     expect(invalidTypeBody.errors.field_plan).toBe("Plan is invalid");
   });
 
+  test("manages form lifecycle from published to draft, archived, restored, and deleted", async ({
+    page,
+    request,
+  }) => {
+    const user = await registerUser(request);
+    await login(page, user);
+
+    const createResponse = await page.request.post("/api/forms", {
+      data: {
+        name: "Lifecycle QA",
+        description: "Lifecycle coverage",
+        schema: {
+          fields: [
+            {
+              id: "field_lifecycle_name",
+              type: "text",
+              label: "Lifecycle name",
+              placeholder: "",
+              validation: [
+                { type: "required", message: "Lifecycle name is required" },
+              ],
+              appearance: { width: 12, order: 0 },
+            },
+          ],
+        },
+      },
+    });
+    expect(createResponse.ok()).toBeTruthy();
+    const created = await createResponse.json();
+
+    const publishResponse = await page.request.post(
+      `/api/forms/${created.form.id}/publish`
+    );
+    expect(publishResponse.ok()).toBeTruthy();
+    const { form: publishedForm } = await publishResponse.json();
+    expect(publishedForm.status).toBe("published");
+
+    await page.goto(`/forms/${publishedForm.id}`);
+    await expect(page.getByRole("heading", { name: "Lifecycle QA" })).toBeVisible();
+
+    const editResponse = await page.request.put(`/api/forms/${publishedForm.id}`, {
+      data: {
+        appId: publishedForm.appId,
+        entityId: publishedForm.entityId,
+        name: "Lifecycle QA draft",
+        description: "Lifecycle coverage after edit",
+        schema: publishedForm.schema,
+      },
+    });
+    expect(editResponse.ok()).toBeTruthy();
+    const { form: draftForm } = await editResponse.json();
+    expect(draftForm.status).toBe("draft");
+    expect(draftForm.version).toBe((publishedForm.version || 1) + 1);
+
+    await page.goto(`/forms/${publishedForm.id}`);
+    await expect(page.getByText("Form unavailable")).toBeVisible();
+
+    const republishResponse = await page.request.post(
+      `/api/forms/${publishedForm.id}/publish`
+    );
+    expect(republishResponse.ok()).toBeTruthy();
+    const { form: republishedForm } = await republishResponse.json();
+    expect(republishedForm.status).toBe("published");
+
+    const archiveResponse = await page.request.patch(
+      `/api/forms/${publishedForm.id}`,
+      { data: { status: "archived" } }
+    );
+    expect(archiveResponse.ok()).toBeTruthy();
+    const { form: archivedForm } = await archiveResponse.json();
+    expect(archivedForm.status).toBe("archived");
+
+    await page.goto("/studio/interfaces/forms");
+    await expect(page.getByText("archived")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Restore" })).toBeVisible();
+
+    await page.goto(`/forms/${publishedForm.id}`);
+    await expect(page.getByText("Form unavailable")).toBeVisible();
+
+    const restoreResponse = await page.request.patch(
+      `/api/forms/${publishedForm.id}`,
+      { data: { status: "draft" } }
+    );
+    expect(restoreResponse.ok()).toBeTruthy();
+    const { form: restoredForm } = await restoreResponse.json();
+    expect(restoredForm.status).toBe("draft");
+
+    const deleteResponse = await page.request.delete(`/api/forms/${publishedForm.id}`);
+    expect(deleteResponse.ok()).toBeTruthy();
+
+    const getResponse = await page.request.get(`/api/forms/${publishedForm.id}`);
+    expect(getResponse.status()).toBe(404);
+  });
+
   test("creates an app, models an entity, and creates a record manually", async ({
     page,
     request,
