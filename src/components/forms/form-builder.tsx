@@ -364,7 +364,7 @@ export function FormBuilder({
       </Card>
 
       <div className="flex flex-col gap-4">
-        <Card>
+        <Card id="builder">
           <CardHeader className="gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex flex-1 flex-col gap-3">
@@ -497,7 +497,7 @@ export function FormBuilder({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="settings">
           <CardHeader>
             <CardTitle>Submission experience</CardTitle>
             <CardDescription>

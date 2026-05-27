@@ -8,8 +8,10 @@
 - Builder preview renders configured fields.
 - Published form appears in the forms table with published status.
 - Published forms expose a same-tab fill link from the forms table and edit screen.
+- Form detail pages expose the core operational tabs/links: Builder, Public form, Responses, Records, and Settings.
 - Published forms return to draft with a new version when edited, can be republished, archived, restored, and deleted.
 - Public forms can be paused with a closed message and can show configurable success copy after submission.
+- Public forms can redirect submitters to a configured URL after a valid submission.
 - Public submissions include a honeypot guard, per-form burst rate limiting, and visible submit error feedback.
 - Public form accepts a valid submission.
 - Submitted responses are visible from the Studio responses page.

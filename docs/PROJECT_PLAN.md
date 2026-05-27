@@ -77,6 +77,7 @@ App Runtime 面向最终业务用户，用于实际处理业务数据、任务�
 当前已补齐 Responses 查询基础：Responses 列表支持关键词搜索、按字段值过滤、按提交时间排序，CSV 导出会复用当前查询条件。
 当前已补齐公开提交体验基础：Form settings 支持开启/关闭收集、关闭提示、成功标题/文案和提交后跳转 URL，公开页与提交 API 使用同一套设置。
 当前已补齐公开提交保护基础：公开表单包含 honeypot 反垃圾字段，提交 API 会按表单和客户端短窗口限流，并把服务端错误展示给填写者。
+当前已补齐 Form Detail 控制台基础：表单详情页聚合 Builder、Public form、Responses、Records、Settings 入口，并展示状态、版本、提交数和绑定 Entity。
 
 ## 3. 核心架构
 

@@ -91,6 +91,16 @@ test.describe("Forms module", () => {
     await expect(page).toHaveURL(/\/studio\/interfaces\/forms\/[0-9a-f-]+$/);
     const formId = page.url().split("/").pop();
     expect(formId).toBeTruthy();
+    await expect(
+      page.getByRole("heading", { name: "Customer intake QA" })
+    ).toBeVisible();
+    await expect(page.getByText("Version 1")).toBeVisible();
+    await expect(page.getByText("Entity: Customer intake QA")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Builder" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Public form" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Responses" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Records" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Settings" }).first()).toBeVisible();
 
     await page.goto("/studio/interfaces/forms");
     await expect(
@@ -357,6 +367,51 @@ test.describe("Forms module", () => {
     });
     expect(rateLimited.status()).toBe(429);
     expect(rateLimited.headers()["retry-after"]).toBeTruthy();
+  });
+
+  test("redirects submitters after a configured public submission", async ({
+    page,
+    request,
+  }) => {
+    const user = await registerUser(request);
+    await login(page, user);
+
+    const createResponse = await page.request.post("/api/forms", {
+      data: {
+        name: "Redirect QA",
+        description: "Redirect after submit",
+        settings: {
+          collectingEnabled: true,
+          closedMessage: "This form is closed.",
+          successTitle: "Saved",
+          successMessage: "Saved successfully.",
+          redirectUrl: "/",
+        },
+        schema: {
+          fields: [
+            {
+              id: "field_redirect_name",
+              type: "text",
+              label: "Redirect name",
+              placeholder: "",
+              validation: [
+                { type: "required", message: "Redirect name is required" },
+              ],
+              appearance: { width: 12, order: 0 },
+            },
+          ],
+        },
+      },
+    });
+    expect(createResponse.ok()).toBeTruthy();
+    const { form } = await createResponse.json();
+    const publishResponse = await page.request.post(`/api/forms/${form.id}/publish`);
+    expect(publishResponse.ok()).toBeTruthy();
+
+    await page.goto(`/forms/${form.id}`);
+    await page.getByLabel("Redirect name").fill("Redirect Tester");
+    await page.getByRole("button", { name: "Submit response" }).click();
+    await expect(page).toHaveURL(/\/$/);
   });
 
   test("manages form lifecycle from published to draft, archived, restored, and deleted", async ({
