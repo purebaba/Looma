@@ -4,7 +4,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { routeError } from "@/lib/api/responses";
 import { requireResourceAccess } from "@/lib/auth/organization";
 import { db } from "@/lib/db/client";
-import { formSubmissions, forms } from "@/lib/db/schema";
+import { formSubmissions, formVersions, forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
 import {
   filterSubmissions,
@@ -42,6 +42,11 @@ export async function GET(
       .from(formSubmissions)
       .where(eq(formSubmissions.formId, form.id))
       .orderBy(desc(formSubmissions.createdAt));
+    const versions = await db
+      .select()
+      .from(formVersions)
+      .where(eq(formVersions.formId, form.id));
+    const versionsById = new Map(versions.map((version) => [version.id, version]));
     const searchParams = new URL(request.url).searchParams;
     const publishedVersion = await getLatestPublishedFormVersion(form.id);
     const schema = publishedVersion
@@ -55,6 +60,7 @@ export async function GET(
         query: searchParams.get("q"),
         fieldId: searchParams.get("fieldId"),
         fieldValue: searchParams.get("fieldValue"),
+        versionsById,
       }),
       sort
     );
@@ -62,6 +68,7 @@ export async function GET(
     const csv = submissionsToCsv({
       schema,
       submissions: filteredSubmissions,
+      versionsById,
     });
 
     return new NextResponse(csv, {

@@ -148,6 +148,12 @@ export default async function FormSubmissionDetailPage({
               </p>
             </div>
             <div>
+              <p className="text-muted-foreground">Form version</p>
+              <p>
+                {submissionVersion ? `v${submissionVersion.version}` : "-"}
+              </p>
+            </div>
+            <div>
               <p className="text-muted-foreground">Entity record</p>
               <p className="break-all font-mono text-xs">
                 {submission.entityRecordId || "-"}

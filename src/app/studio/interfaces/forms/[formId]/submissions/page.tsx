@@ -18,13 +18,15 @@ import {
 } from "@/components/ui/table";
 import { requireResourceAccess } from "@/lib/auth/organization";
 import { db } from "@/lib/db/client";
-import { formSubmissions, forms } from "@/lib/db/schema";
+import { formSubmissions, formVersions, forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
 import {
   filterSubmissions,
   formatSubmissionValue,
+  formatSubmissionSnapshot,
   sortSubmissions,
   submissionFields,
+  versionLabelForSubmission,
 } from "@/lib/forms/submissions";
 import {
   formVersionSchema,
@@ -71,6 +73,11 @@ export default async function FormSubmissionsPage({
     .from(formSubmissions)
     .where(eq(formSubmissions.formId, form.id))
     .orderBy(desc(formSubmissions.createdAt));
+  const versions = await db
+    .select()
+    .from(formVersions)
+    .where(eq(formVersions.formId, form.id));
+  const versionsById = new Map(versions.map((version) => [version.id, version]));
   const sort = filters.sort === "asc" ? "asc" : "desc";
   const filteredSubmissions = sortSubmissions(
     filterSubmissions({
@@ -79,6 +86,7 @@ export default async function FormSubmissionsPage({
       query: filters.q,
       fieldId: filters.fieldId,
       fieldValue: filters.fieldValue,
+      versionsById,
     }),
     sort
   );
@@ -232,7 +240,9 @@ export default async function FormSubmissionsPage({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Submitted</TableHead>
+                    <TableHead>Version</TableHead>
                     <TableHead>Record</TableHead>
+                    <TableHead>Submitted values</TableHead>
                     {fields.map((field) => (
                       <TableHead key={field.id}>{field.label}</TableHead>
                     ))}
@@ -252,10 +262,20 @@ export default async function FormSubmissionsPage({
                               }).format(submission.createdAt)
                             : "Unknown"}
                         </TableCell>
+                        <TableCell>
+                          {versionLabelForSubmission({ submission, versionsById })}
+                        </TableCell>
                         <TableCell className="font-mono text-xs">
                           {submission.entityRecordId
                             ? submission.entityRecordId.slice(0, 8)
                             : "-"}
+                        </TableCell>
+                        <TableCell className="min-w-64 text-xs text-muted-foreground">
+                          {formatSubmissionSnapshot({
+                            fallbackSchema: schema,
+                            submission,
+                            versionsById,
+                          })}
                         </TableCell>
                         {fields.map((field) => (
                           <TableCell key={field.id}>

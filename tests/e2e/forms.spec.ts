@@ -171,16 +171,28 @@ test.describe("Forms module", () => {
     await expect(
       page.getByRole("heading", { name: "Customer intake QA responses" })
     ).toBeVisible();
-    await expect(page.getByText("Ada Lovelace")).toBeVisible();
-    await expect(page.getByText("ada@example.com")).toBeVisible();
-    await expect(page.getByText("referral")).toBeVisible();
-    await expect(page.getByText("Bob Stone")).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Ada Lovelace", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "ada@example.com", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "referral", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Bob Stone", exact: true })
+    ).toBeVisible();
     await page.getByLabel("Search").fill("Ada");
     await page.getByRole("button", { name: "Apply" }).click();
     await expect(page).toHaveURL(/q=Ada/);
     await expect(page.getByText("Filtered from 2 total submissions.")).toBeVisible();
-    await expect(page.getByText("Ada Lovelace")).toBeVisible();
-    await expect(page.getByText("Bob Stone")).not.toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Ada Lovelace", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Bob Stone", exact: true })
+    ).not.toBeVisible();
     await page.getByRole("link", { name: "Reset" }).click();
     await page.getByLabel("Field", { exact: true }).selectOption({
       label: "Lead source",
@@ -189,8 +201,12 @@ test.describe("Forms module", () => {
     await page.getByLabel("Sort").selectOption("asc");
     await page.getByRole("button", { name: "Apply" }).click();
     await expect(page).toHaveURL(/fieldValue=website/);
-    await expect(page.getByText("Bob Stone")).toBeVisible();
-    await expect(page.getByText("Ada Lovelace")).not.toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Bob Stone", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Ada Lovelace", exact: true })
+    ).not.toBeVisible();
     await page.getByRole("link", { name: "Reset" }).click();
     await expect(page.getByRole("link", { name: "Export CSV" })).toBeVisible();
     await page
@@ -414,6 +430,95 @@ test.describe("Forms module", () => {
     await page.getByLabel("Redirect name").fill("Redirect Tester");
     await page.getByRole("button", { name: "Submit response" }).click();
     await expect(page).toHaveURL(/\/$/);
+  });
+
+  test("shows responses with the schema version used at submission time", async ({
+    page,
+    request,
+  }) => {
+    const user = await registerUser(request);
+    await login(page, user);
+
+    const createResponse = await page.request.post("/api/forms", {
+      data: {
+        name: "Versioned responses QA",
+        description: "Response label history",
+        schema: {
+          fields: [
+            {
+              id: "field_versioned_name",
+              type: "text",
+              label: "Original label",
+              placeholder: "",
+              validation: [],
+              appearance: { width: 12, order: 0 },
+            },
+          ],
+        },
+      },
+    });
+    expect(createResponse.ok()).toBeTruthy();
+    const { form } = await createResponse.json();
+    const publishV1 = await page.request.post(`/api/forms/${form.id}/publish`);
+    expect(publishV1.ok()).toBeTruthy();
+
+    await page.goto(`/forms/${form.id}`);
+    await page.getByLabel("Original label").fill("Old value");
+    await page.getByRole("button", { name: "Submit response" }).click();
+    await expect(page.getByText("Submission received")).toBeVisible();
+
+    const updateResponse = await page.request.put(`/api/forms/${form.id}`, {
+      data: {
+        appId: form.appId,
+        entityId: form.entityId,
+        name: "Versioned responses QA",
+        description: "Response label history",
+        schema: {
+          fields: [
+            {
+              ...form.schema.fields[0],
+              entityFieldId: undefined,
+              dataKey: undefined,
+              label: "Current label",
+            },
+          ],
+        },
+      },
+    });
+    expect(updateResponse.ok()).toBeTruthy();
+    const publishV2 = await page.request.post(`/api/forms/${form.id}/publish`);
+    expect(publishV2.ok()).toBeTruthy();
+
+    await page.goto(`/forms/${form.id}`);
+    await page.getByLabel("Current label").fill("New value");
+    await page.getByRole("button", { name: "Submit response" }).click();
+    await expect(page.getByText("Submission received")).toBeVisible();
+
+    await page.goto(`/studio/interfaces/forms/${form.id}/submissions`);
+    await expect(page.getByText("v1")).toBeVisible();
+    await expect(page.getByText("Original label: Old value")).toBeVisible();
+    await expect(page.getByText("v2")).toBeVisible();
+    await expect(page.getByText("Current label: New value")).toBeVisible();
+
+    await page
+      .getByRole("row")
+      .filter({ hasText: "Original label: Old value" })
+      .getByRole("link", { name: "View" })
+      .click();
+    await expect(page.getByText("Form version")).toBeVisible();
+    await expect(page.getByText("v1")).toBeVisible();
+    await expect(page.getByText("Original label")).toBeVisible();
+    await expect(page.getByText("Old value")).toBeVisible();
+
+    const exportResponse = await page.request.get(
+      `/api/forms/${form.id}/submissions/export?q=Original`
+    );
+    expect(exportResponse.ok()).toBeTruthy();
+    const csv = await exportResponse.text();
+    expect(csv).toContain("Form Version,Submitted Values");
+    expect(csv).toContain("v1");
+    expect(csv).toContain("Original label: Old value");
+    expect(csv).not.toContain("New value");
   });
 
   test("manages form lifecycle from published to draft, archived, restored, and deleted", async ({

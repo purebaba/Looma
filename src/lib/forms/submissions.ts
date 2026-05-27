@@ -2,10 +2,19 @@ import type { FormSchema } from "@/lib/forms/field-schema";
 
 type SubmissionLike = {
   id: string;
+  formVersionId?: string | null;
   entityRecordId?: string | null;
   data: unknown;
   createdAt?: Date | string | null;
 };
+
+type VersionLike = {
+  id: string;
+  version: number;
+  schema: unknown;
+};
+
+export type VersionMap = Map<string, VersionLike>;
 
 export function submissionFields(schema: FormSchema) {
   return schema.fields.filter((field) => field.type !== "divider");
@@ -27,18 +36,86 @@ function csvEscape(value: unknown) {
   return text;
 }
 
+export function schemaForSubmission({
+  fallbackSchema,
+  submission,
+  versionsById,
+}: {
+  fallbackSchema: FormSchema;
+  submission: SubmissionLike;
+  versionsById?: VersionMap;
+}) {
+  const version = submission.formVersionId
+    ? versionsById?.get(submission.formVersionId)
+    : null;
+  return version ? (version.schema as FormSchema) : fallbackSchema;
+}
+
+export function versionLabelForSubmission({
+  submission,
+  versionsById,
+}: {
+  submission: SubmissionLike;
+  versionsById?: VersionMap;
+}) {
+  const version = submission.formVersionId
+    ? versionsById?.get(submission.formVersionId)
+    : null;
+  return version ? `v${version.version}` : "-";
+}
+
+export function submissionSnapshotValues({
+  fallbackSchema,
+  submission,
+  versionsById,
+}: {
+  fallbackSchema: FormSchema;
+  submission: SubmissionLike;
+  versionsById?: VersionMap;
+}) {
+  const schema = schemaForSubmission({ fallbackSchema, submission, versionsById });
+  const data = (submission.data || {}) as Record<string, unknown>;
+  return submissionFields(schema).map((field) => ({
+    field,
+    value: data[field.id],
+    text: `${field.label}: ${formatSubmissionValue(data[field.id])}`,
+  }));
+}
+
+export function formatSubmissionSnapshot({
+  fallbackSchema,
+  submission,
+  versionsById,
+}: {
+  fallbackSchema: FormSchema;
+  submission: SubmissionLike;
+  versionsById?: VersionMap;
+}) {
+  return submissionSnapshotValues({
+    fallbackSchema,
+    submission,
+    versionsById,
+  })
+    .map((item) => item.text)
+    .join("; ");
+}
+
 export function submissionsToCsv({
   schema,
   submissions,
+  versionsById,
 }: {
   schema: FormSchema;
   submissions: SubmissionLike[];
+  versionsById?: VersionMap;
 }) {
   const fields = submissionFields(schema);
   const header = [
     "Submission ID",
     "Submitted At",
     "Entity Record ID",
+    "Form Version",
+    "Submitted Values",
     ...fields.map((field) => field.label),
   ];
 
@@ -48,6 +125,12 @@ export function submissionsToCsv({
       submission.id,
       submission.createdAt ? new Date(submission.createdAt).toISOString() : "",
       submission.entityRecordId || "",
+      versionLabelForSubmission({ submission, versionsById }),
+      formatSubmissionSnapshot({
+        fallbackSchema: schema,
+        submission,
+        versionsById,
+      }),
       ...fields.map((field) => data[field.id]),
     ];
   });
@@ -63,12 +146,14 @@ export function filterSubmissions<T extends SubmissionLike>({
   query,
   fieldId,
   fieldValue,
+  versionsById,
 }: {
   schema: FormSchema;
   submissions: T[];
   query?: string | null;
   fieldId?: string | null;
   fieldValue?: string | null;
+  versionsById?: VersionMap;
 }) {
   const normalizedQuery = query?.trim().toLowerCase();
   const normalizedFieldValue = fieldValue?.trim().toLowerCase();
@@ -81,6 +166,12 @@ export function filterSubmissions<T extends SubmissionLike>({
       const haystack = [
         submission.id,
         submission.entityRecordId || "",
+        versionLabelForSubmission({ submission, versionsById }),
+        formatSubmissionSnapshot({
+          fallbackSchema: schema,
+          submission,
+          versionsById,
+        }),
         ...fields.map((field) => formatSubmissionValue(data[field.id])),
       ]
         .join(" ")
