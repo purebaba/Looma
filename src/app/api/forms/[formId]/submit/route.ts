@@ -3,7 +3,12 @@ import { eq } from "drizzle-orm";
 
 import { routeError } from "@/lib/api/responses";
 import { auth } from "@/lib/auth/config";
-import { createRecordAndSubmission } from "@/lib/data/modeling";
+import { getCurrentOrganization } from "@/lib/auth/organization";
+import { canAccess } from "@/lib/auth/permissions";
+import {
+  createRecordAndSubmission,
+  updateRecordAndSubmission,
+} from "@/lib/data/modeling";
 import { db } from "@/lib/db/client";
 import { forms } from "@/lib/db/schema";
 import { validateForm } from "@/lib/forms/field-schema";
@@ -78,6 +83,50 @@ export async function POST(
     }
 
     const session = await auth();
+    const recordId =
+      typeof body.recordId === "string"
+        ? body.recordId
+        : typeof body.entityRecordId === "string"
+          ? body.entityRecordId
+          : null;
+
+    if (recordId) {
+      const current = await getCurrentOrganization();
+      if (!current) {
+        return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      }
+      if (!canAccess(current.membership.role, "data", "update")) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (current.organization.id !== form.orgId) {
+        return NextResponse.json({ error: "Form not found" }, { status: 404 });
+      }
+
+      const result = await updateRecordAndSubmission({
+        form,
+        recordId,
+        data,
+        schema,
+        formVersionId: publishedVersion.id,
+        submittedBy: current.userId,
+        ipAddress: clientIp,
+        userAgent: request.headers.get("user-agent"),
+      });
+
+      if (!result) {
+        return NextResponse.json({ error: "Record not found" }, { status: 404 });
+      }
+
+      return NextResponse.json(
+        {
+          submission: result.submission,
+          submissionId: result.submission.id,
+          recordId: result.record.id,
+        },
+        { status: 200 }
+      );
+    }
+
     const { record, submission } = await createRecordAndSubmission({
       form,
       data,

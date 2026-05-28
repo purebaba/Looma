@@ -20,6 +20,7 @@
 - Public forms can redirect submitters to a configured URL after a valid submission.
 - Public submissions include a honeypot guard, per-form burst rate limiting, and visible submit error feedback.
 - Public form accepts a valid submission.
+- Authenticated users can reopen a Record through its source Form, edit existing values, update the same Entity Record, and create a new Submission audit event.
 - Submitted responses are visible from the Studio responses page.
 - Submitted responses have a detail page with audit metadata, linked Entity Record navigation, and CSV export.
 - Studio Entity Record details show linked source form submissions and can jump back to the response snapshot.

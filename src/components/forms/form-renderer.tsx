@@ -24,12 +24,14 @@ function getInitialValue(field: FieldSchema) {
 
 export function FormRenderer({
   schema,
+  initialValues: initialValuesOverride,
   submitLabel = "Submit",
   onSubmit,
   disabled = false,
   hiddenFields,
 }: {
   schema: FormSchema;
+  initialValues?: FormValues;
   submitLabel?: string;
   onSubmit?: (values: FormValues) => Promise<void> | void;
   disabled?: boolean;
@@ -37,10 +39,11 @@ export function FormRenderer({
 }) {
   const initialValues = useMemo(() => {
     return schema.fields.reduce<FormValues>((values, field) => {
-      values[field.id] = getInitialValue(field);
+      values[field.id] =
+        initialValuesOverride?.[field.id] ?? getInitialValue(field);
       return values;
     }, {});
-  }, [schema.fields]);
+  }, [schema.fields, initialValuesOverride]);
   const [values, setValues] = useState<FormValues>(initialValues);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState("");

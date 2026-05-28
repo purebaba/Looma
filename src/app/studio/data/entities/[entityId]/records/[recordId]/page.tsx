@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, FileText, SquarePen } from "lucide-react";
 
 import { RecordForm } from "@/components/data/record-form";
 import { PageHeader } from "@/components/shared/page-header";
@@ -104,12 +104,24 @@ export default async function RecordDetailPage({
         title={`${entity.name} record`}
         description={`Record ${record.id}`}
         actions={
-          <Button asChild variant="outline">
-            <Link href={`/studio/data/entities/${entity.id}/records`}>
-              <ArrowLeft className="size-4" />
-              Records
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {sourceSubmissions[0]?.formId ? (
+              <Button asChild>
+                <Link
+                  href={`/forms/${sourceSubmissions[0].formId}?recordId=${record.id}`}
+                >
+                  <SquarePen className="size-4" />
+                  Edit with form
+                </Link>
+              </Button>
+            ) : null}
+            <Button asChild variant="outline">
+              <Link href={`/studio/data/entities/${entity.id}/records`}>
+                <ArrowLeft className="size-4" />
+                Records
+              </Link>
+            </Button>
+          </div>
         }
       />
 

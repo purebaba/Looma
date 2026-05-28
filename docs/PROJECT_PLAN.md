@@ -86,6 +86,7 @@ App Runtime 面向最终业务用户，用于实际处理业务数据、任务�
 当前已补齐 Submission / Record 双向上下文基础：Response 详情可打开关联 Record，Studio Record 详情会显示来源 Form Submission 并可跳回提交快照。
 当前已补齐 Form 发布前检查基础：发布前会阻止重复 dataKey、空标签、空/重复选项、缺失条件源字段和失效条件选项，避免生成不可解释或不稳定的 published schema。
 当前已补齐 Form 字段默认值与选项编辑基础：属性面板支持结构化编辑选项 label/value，并支持 text/number/date/select/radio/checkbox/switch 默认值，预览、公开填写和 Record 写入保持一致。
+当前已补齐 Form 编辑 Record 基础：已登录且具备数据更新权限的用户可通过来源 Form 重新打开 Record，提交后更新同一条 Entity Record，同时追加 Record Version 与 Submission 审计快照。
 
 ## 3. 核心架构
 

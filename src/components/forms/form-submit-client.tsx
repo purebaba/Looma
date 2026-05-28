@@ -12,12 +12,16 @@ const HONEYPOT_FIELD = "_loomaWebsite";
 
 export function FormSubmitClient({
   formId,
+  recordId,
   schema,
   settings,
+  initialValues,
 }: {
   formId: string;
+  recordId?: string;
   schema: FormSchema;
   settings: FormSettings;
+  initialValues?: Record<string, unknown>;
 }) {
   const [submitted, setSubmitted] = useState(false);
   const [honeypot, setHoneypot] = useState("");
@@ -41,7 +45,8 @@ export function FormSubmitClient({
   return (
     <FormRenderer
       schema={schema}
-      submitLabel="Submit response"
+      initialValues={initialValues}
+      submitLabel={recordId ? "Update record" : "Submit response"}
       hiddenFields={
         <div className="absolute left-[-10000px] top-auto h-px w-px overflow-hidden">
           <label htmlFor={HONEYPOT_FIELD}>Website</label>
@@ -59,7 +64,7 @@ export function FormSubmitClient({
         const response = await fetch(`/api/forms/${formId}/submit`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data, [HONEYPOT_FIELD]: honeypot }),
+          body: JSON.stringify({ data, recordId, [HONEYPOT_FIELD]: honeypot }),
         });
         if (!response.ok) {
           const result = await response.json().catch(() => null);

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import {
@@ -199,6 +199,20 @@ export function mapSubmissionToRecordData(
   }, {});
 }
 
+export function mapRecordDataToFormData(
+  data: Record<string, unknown>,
+  schema: FormSchema
+) {
+  return schema.fields.reduce<Record<string, unknown>>((formData, field) => {
+    if (field.type === "divider") return formData;
+    const key = field.dataKey || slugify(field.label || field.id);
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      formData[field.id] = data[key];
+    }
+    return formData;
+  }, {});
+}
+
 export async function createRecordAndSubmission({
   form,
   data,
@@ -238,6 +252,87 @@ export async function createRecordAndSubmission({
     recordId: record.id,
     version: 1,
     data: recordData,
+    changedBy: submittedBy,
+  });
+
+  const [submission] = await db
+    .insert(formSubmissions)
+    .values({
+      formId: form.id,
+      formVersionId,
+      entityRecordId: record.id,
+      data,
+      submittedBy,
+      ipAddress,
+      userAgent,
+    })
+    .returning();
+
+  return { record, submission };
+}
+
+export async function updateRecordAndSubmission({
+  form,
+  recordId,
+  data,
+  schema,
+  formVersionId,
+  submittedBy,
+  ipAddress,
+  userAgent,
+}: {
+  form: typeof forms.$inferSelect;
+  recordId: string;
+  data: Record<string, unknown>;
+  schema?: FormSchema;
+  formVersionId?: string | null;
+  submittedBy?: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}) {
+  if (!form.appId || !form.entityId) {
+    throw new Error("Published form is not bound to an app and entity.");
+  }
+
+  const existingRecord = await db.query.entityRecords.findFirst({
+    where: and(
+      eq(entityRecords.id, recordId),
+      eq(entityRecords.orgId, form.orgId),
+      eq(entityRecords.appId, form.appId),
+      eq(entityRecords.entityId, form.entityId)
+    ),
+  });
+
+  if (!existingRecord) {
+    return null;
+  }
+
+  const submissionSchema = schema || (form.schema as FormSchema);
+  const recordData = mapSubmissionToRecordData(data, submissionSchema);
+  const nextData = {
+    ...(existingRecord.data as Record<string, unknown>),
+    ...recordData,
+  };
+
+  const [record] = await db
+    .update(entityRecords)
+    .set({
+      data: nextData,
+      updatedBy: submittedBy,
+      updatedAt: new Date(),
+    })
+    .where(eq(entityRecords.id, existingRecord.id))
+    .returning();
+
+  const [versionCount] = await db
+    .select({ value: count() })
+    .from(entityRecordVersions)
+    .where(eq(entityRecordVersions.recordId, record.id));
+
+  await db.insert(entityRecordVersions).values({
+    recordId: record.id,
+    version: (versionCount?.value ?? 0) + 1,
+    data: nextData,
     changedBy: submittedBy,
   });
 

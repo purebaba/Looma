@@ -263,6 +263,48 @@ test.describe("Forms module", () => {
       page.getByRole("heading", { name: "Customer intake QA records" })
     ).toBeVisible();
     await expect(page.getByText("Ada Lovelace")).toBeVisible();
+
+    await page.goto(
+      `/studio/data/entities/${createdForm.entityId}/records/${adaRecord.id}`
+    );
+    await page.getByRole("link", { name: "Edit with form" }).click();
+    await expect(page).toHaveURL(new RegExp(`/forms/${formId}\\?recordId=`));
+    await expect(page.getByLabel("Full name")).toHaveValue("Ada Lovelace");
+    await expect(page.getByLabel("Email address")).toHaveValue("ada@example.com");
+    await expect(page.getByLabel("Lead source")).toHaveValue("referral");
+    await page.getByLabel("Full name").fill("Ada Byron");
+    await page.getByLabel("Lead source").selectOption("website");
+    await page.getByRole("button", { name: "Update record" }).click();
+    await expect(page.getByText("Thanks from QA")).toBeVisible();
+
+    const updatedRecords = await page.request.get(
+      `/api/entities/${createdForm.entityId}/records`
+    );
+    expect(updatedRecords.ok()).toBeTruthy();
+    const updatedRecordsBody = await updatedRecords.json();
+    expect(updatedRecordsBody.records).toHaveLength(2);
+    const updatedAdaRecord = updatedRecordsBody.records.find(
+      (record: { id: string }) => record.id === adaRecord.id
+    );
+    expect(updatedAdaRecord.data).toMatchObject({
+      "full-name": "Ada Byron",
+      "email-address": "ada@example.com",
+      "lead-source": "website",
+    });
+
+    const updatedSubmissions = await page.request.get(
+      `/api/forms/${formId}/submissions`
+    );
+    expect(updatedSubmissions.ok()).toBeTruthy();
+    const updatedSubmissionsBody = await updatedSubmissions.json();
+    expect(updatedSubmissionsBody.submissions).toHaveLength(3);
+    expect(
+      updatedSubmissionsBody.submissions.some(
+        (submission: { entityRecordId: string; data: Record<string, unknown> }) =>
+          submission.entityRecordId === adaRecord.id &&
+          Object.values(submission.data).includes("Ada Byron")
+      )
+    ).toBeTruthy();
   });
 
   test("blocks invalid public submissions with schema validation", async ({
