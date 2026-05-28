@@ -333,6 +333,96 @@ test.describe("Forms module", () => {
     expect(invalidTypeBody.errors.field_plan).toBe("Plan is invalid");
   });
 
+  test("supports conditional field visibility from the builder through public submission", async ({
+    page,
+    request,
+  }) => {
+    const user = await registerUser(request);
+    await login(page, user);
+
+    await page.goto("/studio/interfaces/forms/new");
+    await page
+      .locator('input[value="Untitled form"]')
+      .fill("Conditional intake QA");
+
+    await page.getByTestId("add-field-select").click();
+    await page.getByLabel("Label").fill("Customer type");
+    await page
+      .getByLabel("Options")
+      .fill("Personal:personal\nBusiness:business");
+
+    await page.getByTestId("add-field-text").click();
+    await page.getByLabel("Label").fill("Company name");
+    await page.getByLabel("Required").check();
+    await page.getByLabel("Show when").selectOption({ label: "Customer type" });
+    await page.getByLabel("Operator").selectOption("equals");
+    await page.getByLabel("Value").selectOption("business");
+    await expect(page.getByTestId("builder-field-text")).toContainText(
+      "Conditional"
+    );
+    await expect(page.getByTestId("builder-field-text")).toContainText(
+      "Customer type equals Business"
+    );
+
+    await page.getByRole("button", { name: "Preview" }).click();
+    await expect(page.getByLabel("Customer type")).toBeVisible();
+    await expect(page.getByLabel("Company name")).not.toBeVisible();
+    await page.getByLabel("Customer type").selectOption("personal");
+    await expect(page.getByLabel("Company name")).not.toBeVisible();
+    await page.getByLabel("Customer type").selectOption("business");
+    await expect(page.getByLabel("Company name")).toBeVisible();
+
+    await page.getByTestId("publish-form").click();
+    await expect(page).toHaveURL(/\/studio\/interfaces\/forms\/[0-9a-f-]+$/);
+    const formId = page.url().split("/").pop();
+    expect(formId).toBeTruthy();
+
+    await page.goto(`/forms/${formId}`);
+    await expect(page.getByLabel("Company name")).not.toBeVisible();
+    await page.getByLabel("Customer type").selectOption("personal");
+    await expect(page.getByLabel("Company name")).not.toBeVisible();
+    await page.getByRole("button", { name: "Submit response" }).click();
+    await expect(page.getByText("Submission received")).toBeVisible();
+
+    await page.goto(`/forms/${formId}`);
+    await page.getByLabel("Customer type").selectOption("business");
+    await expect(page.getByLabel("Company name")).toBeVisible();
+    await page.getByLabel("Company name").fill("Acme Inc");
+    await page.getByRole("button", { name: "Submit response" }).click();
+    await expect(page.getByText("Submission received")).toBeVisible();
+
+    const formsResponse = await page.request.get("/api/forms");
+    expect(formsResponse.ok()).toBeTruthy();
+    const formsBody = await formsResponse.json();
+    const createdForm = formsBody.forms.find(
+      (item: { id: string }) => item.id === formId
+    );
+    expect(createdForm.entityId).toBeTruthy();
+
+    const records = await page.request.get(
+      `/api/entities/${createdForm.entityId}/records`
+    );
+    expect(records.ok()).toBeTruthy();
+    const recordsBody = await records.json();
+    expect(recordsBody.records).toHaveLength(2);
+    const personalRecord = recordsBody.records.find(
+      (record: { data: Record<string, unknown> }) =>
+        record.data["customer-type"] === "personal"
+    );
+    const businessRecord = recordsBody.records.find(
+      (record: { data: Record<string, unknown> }) =>
+        record.data["customer-type"] === "business"
+    );
+    expect(personalRecord).toBeTruthy();
+    expect(businessRecord).toBeTruthy();
+    expect((personalRecord as { data: Record<string, unknown> }).data).not.toHaveProperty(
+      "company-name"
+    );
+    expect((businessRecord as { data: Record<string, unknown> }).data["company-name"]).toBe(
+      "Acme Inc"
+    );
+  });
+
   test("guards public submissions against honeypot spam and burst traffic", async ({
     page,
     request,

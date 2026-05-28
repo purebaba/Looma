@@ -6,6 +6,7 @@
 - Authenticated user can create a form from Studio.
 - Builder can configure text, email, and select fields.
 - Builder shows whether each field is bound to an existing Entity Field or will create/sync a new Entity Field.
+- Builder can configure conditional field visibility, and public submissions skip hidden required fields.
 - Builder preview renders configured fields.
 - Published form appears in the forms table with published status.
 - Published forms expose a same-tab fill link from the forms table and edit screen.

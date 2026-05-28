@@ -26,6 +26,7 @@ import {
   CheckSquare,
   ChevronDown,
   Database,
+  Eye,
   ExternalLink,
   GripVertical,
   Hash,
@@ -51,6 +52,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
   createField,
+  type ConditionalLogic,
   type FieldSchema,
   type FormSchema,
   type ValidationRule,
@@ -487,6 +489,7 @@ export function FormBuilder({
                       <SortableField
                         key={field.id}
                         field={field}
+                        fields={fields}
                         entityFields={selectedEntityFields}
                         selected={field.id === selectedId}
                         onSelect={() => setSelectedId(field.id)}
@@ -638,6 +641,7 @@ export function FormBuilder({
             <FieldProperties
               entityFields={selectedEntityFields}
               field={selectedField}
+              fields={fields}
               onChange={updateField}
             />
           ) : (
@@ -667,12 +671,14 @@ function EmptyCanvas() {
 
 function SortableField({
   field,
+  fields,
   entityFields,
   selected,
   onSelect,
   onDelete,
 }: {
   field: FieldSchema;
+  fields: FieldSchema[];
   entityFields: EntityFieldOption[];
   selected: boolean;
   onSelect: () => void;
@@ -689,6 +695,7 @@ function SortableField({
     (entityField) => entityField.id === field.entityFieldId
   );
   const dataKey = field.dataKey || slugifyFieldLabel(field.label || field.id);
+  const conditionSummary = describeCondition(field.condition, fields);
 
   return (
     <div
@@ -748,6 +755,18 @@ function SortableField({
             </>
           )}
         </div>
+        {conditionSummary ? (
+          <div
+            className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+            data-testid="field-condition-summary"
+          >
+            <Badge variant="outline" className="gap-1">
+              <Eye className="size-3" />
+              Conditional
+            </Badge>
+            <span className="truncate">{conditionSummary}</span>
+          </div>
+        ) : null}
       </div>
       <Badge variant="outline">{field.appearance.width}/12</Badge>
       <Button
@@ -767,10 +786,12 @@ function SortableField({
 
 function FieldProperties({
   field,
+  fields,
   entityFields,
   onChange,
 }: {
   field: FieldSchema;
+  fields: FieldSchema[];
   entityFields: EntityFieldOption[];
   onChange: (fieldId: string, patch: Partial<FieldSchema>) => void;
 }) {
@@ -785,6 +806,12 @@ function FieldProperties({
     canBindFieldToEntityField(field, entityField)
   );
   const dataKey = field.dataKey || slugifyFieldLabel(field.label || field.id);
+  const conditionFields = fields.filter(
+    (candidate) => candidate.id !== field.id && candidate.type !== "divider"
+  );
+  const conditionSource = conditionFields.find(
+    (candidate) => candidate.id === field.condition?.field
+  );
 
   function setValidation(type: ValidationRule["type"], value: string | number | boolean) {
     let next = field.validation.filter((rule) => rule.type !== type);
@@ -817,6 +844,50 @@ function FieldProperties({
     onChange(field.id, {
       entityFieldId: entityField.id,
       dataKey: entityField.slug,
+    });
+  }
+
+  function setConditionSource(sourceFieldId: string) {
+    if (!sourceFieldId) {
+      onChange(field.id, { condition: undefined });
+      return;
+    }
+    const source = conditionFields.find((candidate) => candidate.id === sourceFieldId);
+    if (!source) return;
+    onChange(field.id, {
+      condition: {
+        field: source.id,
+        operator: "equals",
+        value: defaultConditionValue(source),
+      },
+    });
+  }
+
+  function updateCondition(patch: Partial<ConditionalLogic>) {
+    if (!field.condition) return;
+    const next = { ...field.condition, ...patch };
+    const nextSource = conditionFields.find(
+      (candidate) => candidate.id === next.field
+    );
+    if (!nextSource) {
+      onChange(field.id, { condition: undefined });
+      return;
+    }
+    if (next.operator === "not_empty") {
+      onChange(field.id, {
+        condition: { field: nextSource.id, operator: next.operator },
+      });
+      return;
+    }
+    onChange(field.id, {
+      condition: {
+        field: nextSource.id,
+        operator: next.operator || "equals",
+        value:
+          next.value === undefined
+            ? defaultConditionValue(nextSource)
+            : normalizeConditionValue(nextSource, next.value),
+      },
     });
   }
 
@@ -978,6 +1049,133 @@ function FieldProperties({
           </p>
         </div>
       ) : null}
+      <div className="rounded-md border bg-muted/30 p-3">
+        <div className="flex items-start gap-2">
+          <Eye className="mt-0.5 size-4 text-muted-foreground" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">Conditional visibility</p>
+            <p className="text-xs text-muted-foreground">
+              Show this field only when another field matches a rule.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 grid gap-3">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="field-condition-source">Show when</Label>
+            <select
+              id="field-condition-source"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              value={field.condition?.field || ""}
+              onChange={(event) => setConditionSource(event.target.value)}
+            >
+              <option value="">Always visible</option>
+              {conditionFields.map((conditionField) => (
+                <option key={conditionField.id} value={conditionField.id}>
+                  {conditionField.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {field.condition && conditionSource ? (
+            <>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="field-condition-operator">Operator</Label>
+                <select
+                  id="field-condition-operator"
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  value={field.condition.operator}
+                  onChange={(event) =>
+                    updateCondition({
+                      operator: event.target.value as ConditionalLogic["operator"],
+                      value:
+                        event.target.value === "not_empty"
+                          ? undefined
+                          : field.condition?.value,
+                    })
+                  }
+                >
+                  <option value="equals">Equals</option>
+                  <option value="not_equals">Does not equal</option>
+                  <option value="contains">Contains</option>
+                  <option value="not_empty">Is not empty</option>
+                </select>
+              </div>
+              {field.condition.operator !== "not_empty" ? (
+                <ConditionValueControl
+                  condition={field.condition}
+                  sourceField={conditionSource}
+                  onChange={(value) => updateCondition({ value })}
+                />
+              ) : null}
+            </>
+          ) : conditionFields.length ? null : (
+            <p className="text-xs text-muted-foreground">
+              Add another field before this one can depend on a condition.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConditionValueControl({
+  condition,
+  sourceField,
+  onChange,
+}: {
+  condition: ConditionalLogic;
+  sourceField: FieldSchema;
+  onChange: (value: unknown) => void;
+}) {
+  const value = condition.value ?? defaultConditionValue(sourceField);
+  const label = "Value";
+
+  if (sourceField.type === "switch") {
+    return (
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="field-condition-value">{label}</Label>
+        <select
+          id="field-condition-value"
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          value={String(Boolean(value))}
+          onChange={(event) => onChange(event.target.value === "true")}
+        >
+          <option value="true">Enabled</option>
+          <option value="false">Disabled</option>
+        </select>
+      </div>
+    );
+  }
+
+  if (sourceField.options?.length) {
+    return (
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="field-condition-value">{label}</Label>
+        <select
+          id="field-condition-value"
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          value={String(value)}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {sourceField.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor="field-condition-value">{label}</Label>
+      <Input
+        id="field-condition-value"
+        value={String(value)}
+        onChange={(event) => onChange(event.target.value)}
+      />
     </div>
   );
 }
@@ -987,6 +1185,47 @@ function canBindFieldToEntityField(
   entityField: EntityFieldOption
 ) {
   return field.type === entityField.type;
+}
+
+function defaultConditionValue(field: FieldSchema) {
+  if (field.type === "switch") return true;
+  if (field.options?.[0]) return field.options[0].value;
+  return "";
+}
+
+function normalizeConditionValue(field: FieldSchema, value: unknown) {
+  if (field.type === "switch") {
+    return value === true || value === "true";
+  }
+  return String(value ?? "");
+}
+
+function describeCondition(
+  condition: ConditionalLogic | undefined,
+  fields: FieldSchema[]
+) {
+  if (!condition) return "";
+  const source = fields.find((field) => field.id === condition.field);
+  if (!source) return "Depends on a missing field";
+  const operatorLabels: Record<ConditionalLogic["operator"], string> = {
+    equals: "equals",
+    not_equals: "does not equal",
+    contains: "contains",
+    not_empty: "is not empty",
+  };
+  if (condition.operator === "not_empty") {
+    return `${source.label} ${operatorLabels[condition.operator]}`;
+  }
+  const option = source.options?.find(
+    (item) => item.value === String(condition.value)
+  );
+  const valueLabel =
+    source.type === "switch"
+      ? condition.value
+        ? "Enabled"
+        : "Disabled"
+      : option?.label || String(condition.value ?? "");
+  return `${source.label} ${operatorLabels[condition.operator]} ${valueLabel}`;
 }
 
 function slugifyFieldLabel(value: string) {

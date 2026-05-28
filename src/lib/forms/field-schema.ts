@@ -9,7 +9,7 @@ export interface ValidationRule {
 export interface ConditionalLogic {
   field: string;
   operator: "equals" | "not_equals" | "contains" | "not_empty";
-  value: unknown;
+  value?: unknown;
 }
 
 export interface FieldAppearance {
