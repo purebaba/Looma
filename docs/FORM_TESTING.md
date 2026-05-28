@@ -20,6 +20,7 @@
 - Public form accepts a valid submission.
 - Submitted responses are visible from the Studio responses page.
 - Submitted responses have a detail page with audit metadata, linked Entity Record navigation, and CSV export.
+- Studio Entity Record details show linked source form submissions and can jump back to the response snapshot.
 - Responses can be searched, filtered by field value, sorted, and exported with the active filters applied.
 - Responses list, detail, and CSV export show submission snapshots using the form version that was active when each submission was created.
 - Submitted responses also create entity records that are visible in Data Studio.

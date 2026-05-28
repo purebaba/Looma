@@ -231,6 +231,19 @@ test.describe("Forms module", () => {
     await expect(page.getByText("Ada Lovelace")).toBeVisible();
     await expect(page.getByText("ada@example.com")).toBeVisible();
     await expect(page.getByRole("link", { name: "Open record" })).toBeVisible();
+    await page.getByRole("link", { name: "Open record" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Customer intake QA record" })
+    ).toBeVisible();
+    await expect(page.getByText("Source submissions")).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Customer intake QA", exact: true })
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open response" })).toBeVisible();
+    await page.getByRole("link", { name: "Open response" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Customer intake QA response" })
+    ).toBeVisible();
     await page.getByRole("link", { name: "Responses" }).click();
 
     const exportResponse = await page.request.get(
