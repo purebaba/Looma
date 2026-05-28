@@ -84,6 +84,7 @@ App Runtime 面向最终业务用户，用于实际处理业务数据、任务�
 当前已补齐 Form Builder 数据绑定可视化基础：画布字段会显示已绑定 Entity Field 或将创建的新 Entity Field，属性面板可查看/切换兼容 Entity Field 绑定和 dataKey。
 当前已补齐 Form Builder 条件显示基础：属性面板可配置字段按其他字段值显示/隐藏，设计预览、公开填写、校验和 Record 写入使用同一套条件逻辑。
 当前已补齐 Submission / Record 双向上下文基础：Response 详情可打开关联 Record，Studio Record 详情会显示来源 Form Submission 并可跳回提交快照。
+当前已补齐 Form 发布前检查基础：发布前会阻止重复 dataKey、空标签、空/重复选项、缺失条件源字段和失效条件选项，避免生成不可解释或不稳定的 published schema。
 
 ## 3. 核心架构
 

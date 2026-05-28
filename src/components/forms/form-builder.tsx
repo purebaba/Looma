@@ -22,6 +22,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   AlignLeft,
+  AlertCircle,
   Calendar,
   CheckSquare,
   ChevronDown,
@@ -105,6 +106,11 @@ type EntityOption = {
   fields: EntityFieldOption[];
 };
 
+type PublishCheckIssue = {
+  fieldId?: string;
+  message: string;
+};
+
 export function FormBuilder({
   initialForm,
   apps = [],
@@ -150,6 +156,7 @@ export function FormBuilder({
 
   const selectedField = fields.find((field) => field.id === selectedId) || null;
   const schema = useMemo<FormSchema>(() => ({ fields }), [fields]);
+  const publishIssues = useMemo(() => validatePublishSchema(fields), [fields]);
   const availableEntities = entities.filter((entity) => entity.appId === appId);
   const selectedEntity =
     availableEntities.find((entity) => entity.id === entityId) || null;
@@ -267,6 +274,18 @@ export function FormBuilder({
   }
 
   async function saveForm(publish = false) {
+    if (publish && publishIssues.length > 0) {
+      const firstFieldIssue = publishIssues.find((issue) => issue.fieldId);
+      if (firstFieldIssue?.fieldId) setSelectedId(firstFieldIssue.fieldId);
+      setMode("design");
+      toast({
+        title: "Fix publish checks",
+        description: "Resolve the highlighted issues before publishing this form.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       const payload = {
@@ -504,6 +523,46 @@ export function FormBuilder({
             )}
           </CardContent>
         </Card>
+
+        {publishIssues.length > 0 ? (
+          <Card className="border-destructive/40" data-testid="publish-checks">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <AlertCircle className="size-4 text-destructive" />
+                Publish checks
+              </CardTitle>
+              <CardDescription>
+                Resolve these issues before the form can be published.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="grid gap-2 text-sm">
+                {publishIssues.map((issue, index) => (
+                  <li
+                    key={`${issue.fieldId || "form"}-${index}`}
+                    className="flex items-start gap-2 text-destructive"
+                  >
+                    <span className="mt-1 size-1.5 rounded-full bg-destructive" />
+                    {issue.fieldId ? (
+                      <button
+                        type="button"
+                        className="text-left underline-offset-4 hover:underline"
+                        onClick={() => {
+                          setMode("design");
+                          setSelectedId(issue.fieldId || null);
+                        }}
+                      >
+                        {issue.message}
+                      </button>
+                    ) : (
+                      <span>{issue.message}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card id="settings">
           <CardHeader>
@@ -1185,6 +1244,116 @@ function canBindFieldToEntityField(
   entityField: EntityFieldOption
 ) {
   return field.type === entityField.type;
+}
+
+function validatePublishSchema(fields: FieldSchema[]): PublishCheckIssue[] {
+  const issues: PublishCheckIssue[] = [];
+  const usableFields = fields.filter((field) => field.type !== "divider");
+  const fieldIds = new Set(fields.map((field) => field.id));
+  const dataKeyToFields = new Map<string, FieldSchema[]>();
+
+  if (usableFields.length === 0) {
+    issues.push({ message: "Add at least one input field before publishing." });
+  }
+
+  for (const field of usableFields) {
+    const label = field.label.trim();
+    const dataKey = field.dataKey || slugifyFieldLabel(label || field.id);
+
+    if (!label) {
+      issues.push({
+        fieldId: field.id,
+        message: "Every field needs a visible label.",
+      });
+    }
+
+    if (!dataKey) {
+      issues.push({
+        fieldId: field.id,
+        message: `${label || "This field"} needs a data key.`,
+      });
+    }
+
+    dataKeyToFields.set(dataKey, [...(dataKeyToFields.get(dataKey) || []), field]);
+
+    if (OPTION_FIELD_TYPES.has(field.type)) {
+      const options = field.options || [];
+      const optionValues = new Set<string>();
+      if (options.length === 0) {
+        issues.push({
+          fieldId: field.id,
+          message: `${label || "This option field"} needs at least one option.`,
+        });
+      }
+      for (const option of options) {
+        if (!option.label.trim() || !option.value.trim()) {
+          issues.push({
+            fieldId: field.id,
+            message: `${label || "This option field"} has an option with an empty label or value.`,
+          });
+          break;
+        }
+        if (optionValues.has(option.value)) {
+          issues.push({
+            fieldId: field.id,
+            message: `${label || "This option field"} has duplicate option values.`,
+          });
+          break;
+        }
+        optionValues.add(option.value);
+      }
+    }
+
+    if (field.condition) {
+      const sourceField = fields.find((candidate) => candidate.id === field.condition?.field);
+      if (!sourceField || !fieldIds.has(field.condition.field)) {
+        issues.push({
+          fieldId: field.id,
+          message: `${label || "This field"} depends on a missing field.`,
+        });
+      } else if (sourceField.id === field.id) {
+        issues.push({
+          fieldId: field.id,
+          message: `${label || "This field"} cannot depend on itself.`,
+        });
+      } else if (
+        field.condition.operator !== "not_empty" &&
+        (field.condition.value === undefined || field.condition.value === "")
+      ) {
+        issues.push({
+          fieldId: field.id,
+          message: `${label || "This field"} condition needs a comparison value.`,
+        });
+      } else if (
+        field.condition.operator !== "not_empty" &&
+        sourceField.options?.length &&
+        !sourceField.options.some(
+          (option) => option.value === String(field.condition?.value)
+        )
+      ) {
+        issues.push({
+          fieldId: field.id,
+          message: `${label || "This field"} condition references an option that no longer exists.`,
+        });
+      }
+    }
+  }
+
+  for (const [dataKey, duplicatedFields] of dataKeyToFields) {
+    if (duplicatedFields.length > 1) {
+      const labels = duplicatedFields
+        .map((field) => field.label.trim() || "Untitled field")
+        .join(", ");
+      for (const field of duplicatedFields) {
+        issues.push({
+          fieldId: field.id,
+          message: `Duplicate data key "${dataKey}" is used by ${labels}.`,
+        });
+      }
+    }
+  }
+
+  return issues;
 }
 
 function defaultConditionValue(field: FieldSchema) {

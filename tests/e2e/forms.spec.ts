@@ -436,6 +436,58 @@ test.describe("Forms module", () => {
     );
   });
 
+  test("blocks publishing when builder checks find unsafe schema issues", async ({
+    page,
+    request,
+  }) => {
+    const user = await registerUser(request);
+    await login(page, user);
+
+    await page.goto("/studio/interfaces/forms/new");
+    await page
+      .locator('input[value="Untitled form"]')
+      .fill("Publish checks QA");
+
+    await page.getByTestId("add-field-text").click();
+    await page.getByLabel("Label").fill("First name");
+    await page.getByLabel("Data key").fill("duplicate-key");
+
+    await page.getByTestId("add-field-text").click();
+    await page.getByLabel("Label").fill("Second name");
+    await page.getByLabel("Data key").fill("duplicate-key");
+
+    await page.getByTestId("publish-form").click();
+    await expect(page).toHaveURL(/\/studio\/interfaces\/forms\/new$/);
+    await expect(page.getByTestId("publish-checks")).toContainText(
+      'Duplicate data key "duplicate-key"'
+    );
+    await expect(page.getByText("Fix publish checks")).toBeVisible();
+
+    await page.getByLabel("Data key").fill("second-name");
+    await expect(page.getByTestId("publish-checks")).not.toBeVisible();
+
+    await page.getByTestId("add-field-select").click();
+    await page.getByLabel("Label").fill("Gate");
+    await page.getByLabel("Options").fill("Yes:yes\nNo:no");
+
+    await page.getByTestId("add-field-text").click();
+    await page.getByLabel("Label").fill("Conditional note");
+    await page.getByLabel("Show when").selectOption({ label: "Gate" });
+    await page.getByLabel("Value").selectOption("yes");
+
+    await page
+      .getByTestId("builder-field-select")
+      .getByRole("button")
+      .last()
+      .click();
+
+    await page.getByTestId("publish-form").click();
+    await expect(page).toHaveURL(/\/studio\/interfaces\/forms\/new$/);
+    await expect(page.getByTestId("publish-checks")).toContainText(
+      "Conditional note depends on a missing field"
+    );
+  });
+
   test("guards public submissions against honeypot spam and burst traffic", async ({
     page,
     request,
