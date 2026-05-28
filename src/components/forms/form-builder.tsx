@@ -950,6 +950,58 @@ function FieldProperties({
     });
   }
 
+  function setDefaultValue(value: unknown) {
+    onChange(field.id, { defaultValue: normalizeDefaultValue(field, value) });
+  }
+
+  function setOptions(options: FieldSchema["options"]) {
+    const nextOptions = options || [];
+    const nextValues = new Set(nextOptions.map((option) => option.value));
+    let nextDefaultValue = field.defaultValue;
+
+    if (field.type === "checkbox") {
+      nextDefaultValue = Array.isArray(field.defaultValue)
+        ? field.defaultValue.filter((value) => nextValues.has(String(value)))
+        : [];
+    } else if (
+      field.defaultValue !== undefined &&
+      field.defaultValue !== "" &&
+      !nextValues.has(String(field.defaultValue))
+    ) {
+      nextDefaultValue = "";
+    }
+
+    onChange(field.id, {
+      options: nextOptions,
+      defaultValue: nextDefaultValue,
+    });
+  }
+
+  function updateOption(index: number, patch: { label?: string; value?: string }) {
+    const options = field.options || [];
+    setOptions(
+      options.map((option, optionIndex) =>
+        optionIndex === index ? { ...option, ...patch } : option
+      )
+    );
+  }
+
+  function addOption() {
+    const options = field.options || [];
+    const nextIndex = options.length + 1;
+    setOptions([
+      ...options,
+      {
+        label: `Option ${nextIndex}`,
+        value: `option_${nextIndex}`,
+      },
+    ]);
+  }
+
+  function removeOption(index: number) {
+    setOptions((field.options || []).filter((_, optionIndex) => optionIndex !== index));
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-md border bg-muted/30 p-3">
@@ -1079,17 +1131,59 @@ function FieldProperties({
           onChange={(event) => setValidation("pattern", event.target.value)}
         />
       </div>
+      <DefaultValueControl field={field} onChange={setDefaultValue} />
       {OPTION_FIELD_TYPES.has(field.type) ? (
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="field-options">Options</Label>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="field-options">Options</Label>
+            <Button type="button" variant="outline" size="sm" onClick={addOption}>
+              <Plus className="size-4" />
+              Add option
+            </Button>
+          </div>
+          <div className="grid gap-2" data-testid="option-editor">
+            {(field.options || []).map((option, index) => (
+              <div
+                key={`${option.value}-${index}`}
+                className="grid gap-2 rounded-md border p-2"
+              >
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2">
+                  <Input
+                    aria-label={`Choice ${index + 1} name`}
+                    value={option.label}
+                    onChange={(event) =>
+                      updateOption(index, { label: event.target.value })
+                    }
+                  />
+                  <Input
+                    aria-label={`Choice ${index + 1} stored value`}
+                    value={option.value}
+                    onChange={(event) =>
+                      updateOption(index, {
+                        value: slugifyOptionValue(event.target.value),
+                      })
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeOption(index)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
           <Textarea
             id="field-options"
             value={(field.options || [])
               .map((option) => `${option.label}:${option.value}`)
               .join("\n")}
             onChange={(event) =>
-              onChange(field.id, {
-                options: event.target.value
+              setOptions(
+                event.target.value
                   .split("\n")
                   .map((line) => line.trim())
                   .filter(Boolean)
@@ -1097,14 +1191,16 @@ function FieldProperties({
                     const [label, value] = line.split(":");
                     return {
                       label: label.trim(),
-                      value: (value || label || `option_${index + 1}`).trim(),
+                      value: slugifyOptionValue(
+                        (value || label || `option_${index + 1}`).trim()
+                      ),
                     };
-                  }),
-              })
+                  })
+              )
             }
           />
           <p className="text-xs text-muted-foreground">
-            One option per line, formatted as Label:value.
+            Edit rows directly, or paste one option per line as Label:value.
           </p>
         </div>
       ) : null}
@@ -1233,6 +1329,96 @@ function ConditionValueControl({
       <Input
         id="field-condition-value"
         value={String(value)}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  );
+}
+
+function DefaultValueControl({
+  field,
+  onChange,
+}: {
+  field: FieldSchema;
+  onChange: (value: unknown) => void;
+}) {
+  const value = field.defaultValue;
+
+  if (field.type === "divider") return null;
+
+  if (field.type === "switch") {
+    return (
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="field-default-value">Default value</Label>
+        <select
+          id="field-default-value"
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          value={String(Boolean(value))}
+          onChange={(event) => onChange(event.target.value === "true")}
+        >
+          <option value="false">Disabled</option>
+          <option value="true">Enabled</option>
+        </select>
+      </div>
+    );
+  }
+
+  if (field.type === "checkbox") {
+    const selected = Array.isArray(value) ? value.map(String) : [];
+    return (
+      <div className="flex flex-col gap-2">
+        <Label>Default value</Label>
+        <div className="flex flex-wrap gap-3">
+          {(field.options || []).map((option) => (
+            <label key={option.value} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                aria-label={`Default ${option.label}`}
+                checked={selected.includes(option.value)}
+                onChange={(event) =>
+                  onChange(
+                    event.target.checked
+                      ? [...selected, option.value]
+                      : selected.filter((item) => item !== option.value)
+                  )
+                }
+              />
+              {option.label}
+            </label>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (field.options?.length) {
+    return (
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="field-default-value">Default value</Label>
+        <select
+          id="field-default-value"
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          value={String(value || "")}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          <option value="">No default</option>
+          {field.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor="field-default-value">Default value</Label>
+      <Input
+        id="field-default-value"
+        type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+        value={String(value ?? "")}
         onChange={(event) => onChange(event.target.value)}
       />
     </div>
@@ -1369,6 +1555,19 @@ function normalizeConditionValue(field: FieldSchema, value: unknown) {
   return String(value ?? "");
 }
 
+function normalizeDefaultValue(field: FieldSchema, value: unknown) {
+  if (field.type === "number") {
+    return value === "" ? "" : Number(value);
+  }
+  if (field.type === "switch") {
+    return value === true || value === "true";
+  }
+  if (field.type === "checkbox") {
+    return Array.isArray(value) ? value.map(String) : [];
+  }
+  return value;
+}
+
 function describeCondition(
   condition: ConditionalLogic | undefined,
   fields: FieldSchema[]
@@ -1404,4 +1603,13 @@ function slugifyFieldLabel(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return slug || "field";
+}
+
+function slugifyOptionValue(value: string) {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return slug || "option";
 }

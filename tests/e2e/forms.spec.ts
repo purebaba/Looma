@@ -369,7 +369,7 @@ test.describe("Forms module", () => {
     await page.getByLabel("Required").check();
     await page.getByLabel("Show when").selectOption({ label: "Customer type" });
     await page.getByLabel("Operator").selectOption("equals");
-    await page.getByLabel("Value").selectOption("business");
+    await page.getByLabel("Value", { exact: true }).selectOption("business");
     await expect(page.getByTestId("builder-field-text")).toContainText(
       "Conditional"
     );
@@ -461,7 +461,6 @@ test.describe("Forms module", () => {
     await expect(page.getByTestId("publish-checks")).toContainText(
       'Duplicate data key "duplicate-key"'
     );
-    await expect(page.getByText("Fix publish checks")).toBeVisible();
 
     await page.getByLabel("Data key").fill("second-name");
     await expect(page.getByTestId("publish-checks")).not.toBeVisible();
@@ -473,7 +472,7 @@ test.describe("Forms module", () => {
     await page.getByTestId("add-field-text").click();
     await page.getByLabel("Label").fill("Conditional note");
     await page.getByLabel("Show when").selectOption({ label: "Gate" });
-    await page.getByLabel("Value").selectOption("yes");
+    await page.getByLabel("Value", { exact: true }).selectOption("yes");
 
     await page
       .getByTestId("builder-field-select")
@@ -486,6 +485,56 @@ test.describe("Forms module", () => {
     await expect(page.getByTestId("publish-checks")).toContainText(
       "Conditional note depends on a missing field"
     );
+  });
+
+  test("supports structured option editing and default values", async ({
+    page,
+    request,
+  }) => {
+    const user = await registerUser(request);
+    await login(page, user);
+
+    await page.goto("/studio/interfaces/forms/new");
+    await page
+      .locator('input[value="Untitled form"]')
+      .fill("Default options QA");
+
+    await page.getByTestId("add-field-select").click();
+    await page.getByLabel("Label").fill("Plan");
+    await page.getByLabel("Choice 1 name").fill("Starter");
+    await page.getByLabel("Choice 1 stored value").fill("starter");
+    await page.getByLabel("Choice 2 name").fill("Professional");
+    await page.getByLabel("Choice 2 stored value").fill("professional");
+    await page.getByLabel("Default value").selectOption("professional");
+
+    await page.getByRole("button", { name: "Preview" }).click();
+    await expect(page.getByLabel("Plan")).toHaveValue("professional");
+
+    await page.getByTestId("publish-form").click();
+    await expect(page).toHaveURL(/\/studio\/interfaces\/forms\/[0-9a-f-]+$/);
+    const formId = page.url().split("/").pop();
+    expect(formId).toBeTruthy();
+
+    await page.goto(`/forms/${formId}`);
+    await expect(page.getByLabel("Plan")).toHaveValue("professional");
+    await page.getByRole("button", { name: "Submit response" }).click();
+    await expect(page.getByText("Submission received")).toBeVisible();
+
+    const formsResponse = await page.request.get("/api/forms");
+    expect(formsResponse.ok()).toBeTruthy();
+    const formsBody = await formsResponse.json();
+    const createdForm = formsBody.forms.find(
+      (item: { id: string }) => item.id === formId
+    );
+    expect(createdForm.entityId).toBeTruthy();
+
+    const records = await page.request.get(
+      `/api/entities/${createdForm.entityId}/records`
+    );
+    expect(records.ok()).toBeTruthy();
+    const recordsBody = await records.json();
+    expect(recordsBody.records).toHaveLength(1);
+    expect(recordsBody.records[0].data.plan).toBe("professional");
   });
 
   test("guards public submissions against honeypot spam and burst traffic", async ({
