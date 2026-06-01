@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { and, asc, count, eq } from "drizzle-orm";
 import {
+  AlertCircle,
   Database,
   ExternalLink,
   Inbox,
@@ -13,7 +14,7 @@ import { FormVersionActions } from "@/components/forms/form-version-actions";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireResourceAccess } from "@/lib/auth/organization";
 import { db } from "@/lib/db/client";
 import {
@@ -24,6 +25,7 @@ import {
   forms,
 } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
+import { diffFormSchemas } from "@/lib/forms/schema-governance";
 import { getFormVersions } from "@/lib/forms/versions";
 
 export const dynamic = "force-dynamic";
@@ -97,6 +99,13 @@ export default async function EditFormPage({
         .orderBy(asc(entityFields.order)),
     }))
   );
+  const latestPublishedVersion = versions[0];
+  const draftDiffs = latestPublishedVersion
+    ? diffFormSchemas({
+        draftSchema: form.schema as FormSchema,
+        baselineSchema: latestPublishedVersion.schema as FormSchema,
+      })
+    : [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -185,6 +194,56 @@ export default async function EditFormPage({
           </Button>
         </CardContent>
       </Card>
+      {latestPublishedVersion ? (
+        <Card data-testid="form-publish-diff">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertCircle className="size-4 text-amber-600" />
+              Draft changes since Version {latestPublishedVersion.version}
+            </CardTitle>
+            <CardDescription>
+              Review field changes before publishing this draft. Responses keep
+              their original version snapshots.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {draftDiffs.length ? (
+              <div className="grid gap-2">
+                {draftDiffs.map((diff) => (
+                  <div
+                    key={`${diff.kind}-${diff.fieldId}`}
+                    className="rounded-md border px-3 py-2 text-sm"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant={
+                          diff.severity === "danger"
+                            ? "destructive"
+                            : diff.severity === "warning"
+                              ? "secondary"
+                              : "outline"
+                        }
+                      >
+                        {diff.kind}
+                      </Badge>
+                      <p className="font-medium">{diff.summary}</p>
+                    </div>
+                    <ul className="mt-2 grid gap-1 text-xs text-muted-foreground">
+                      {diff.details.map((detail) => (
+                        <li key={detail}>{detail}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No field-level changes from the live published version.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
       <Card>
         <CardContent className="grid gap-3 p-4">
           <div>

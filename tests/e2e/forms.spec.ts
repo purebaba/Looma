@@ -754,6 +754,15 @@ test.describe("Forms module", () => {
       },
     });
     expect(updateResponse.ok()).toBeTruthy();
+
+    await page.goto(`/studio/interfaces/forms/${form.id}`);
+    await expect(page.getByTestId("form-publish-diff")).toContainText(
+      "Draft changes since Version 1"
+    );
+    await expect(page.getByTestId("form-publish-diff")).toContainText(
+      'Label: "Original label" -> "Current label"'
+    );
+
     const publishV2 = await page.request.post(`/api/forms/${form.id}/publish`);
     expect(publishV2.ok()).toBeTruthy();
 
