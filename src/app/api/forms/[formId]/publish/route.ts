@@ -7,7 +7,12 @@ import { ensureDefaultApp, ensureEntityForForm } from "@/lib/data/modeling";
 import { db } from "@/lib/db/client";
 import { apps, forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
-import { createPublishedFormVersion } from "@/lib/forms/versions";
+import { reconcileSchemaWithPublishedBaseline } from "@/lib/forms/schema-governance";
+import {
+  createPublishedFormVersion,
+  formVersionSchema,
+  getLatestPublishedFormVersion,
+} from "@/lib/forms/versions";
 
 export async function POST(
   _request: Request,
@@ -31,13 +36,31 @@ export async function POST(
       orgId: current.organization.id,
       userId: current.userId,
     }));
+    const latestPublishedVersion = await getLatestPublishedFormVersion(existing.id);
+    const governed = reconcileSchemaWithPublishedBaseline({
+      incomingSchema: existing.schema as FormSchema,
+      baselineSchema: latestPublishedVersion
+        ? formVersionSchema(latestPublishedVersion)
+        : null,
+    });
+
+    if (governed.issues.length > 0) {
+      return NextResponse.json(
+        {
+          error: "Form schema has unsafe published field changes",
+          issues: governed.issues,
+        },
+        { status: 409 }
+      );
+    }
+
     const model = await ensureEntityForForm({
       orgId: current.organization.id,
       appId: app.id,
       userId: current.userId,
       formName: existing.name,
       entityId: existing.entityId,
-      schema: existing.schema as FormSchema,
+      schema: governed.schema,
     });
 
     const [form] = await db

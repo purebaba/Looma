@@ -789,6 +789,119 @@ test.describe("Forms module", () => {
     expect(csv).not.toContain("New value");
   });
 
+  test("protects published field data keys and entity bindings from unsafe API edits", async ({
+    page,
+    request,
+  }) => {
+    const user = await registerUser(request);
+    await login(page, user);
+
+    const createResponse = await page.request.post("/api/forms", {
+      data: {
+        name: "Governed schema QA",
+        description: "Protects record mappings",
+        schema: {
+          fields: [
+            {
+              id: "field_governed_name",
+              type: "text",
+              label: "Governed name",
+              placeholder: "",
+              validation: [],
+              appearance: { width: 12, order: 0 },
+            },
+          ],
+        },
+      },
+    });
+    expect(createResponse.ok()).toBeTruthy();
+    const { form: createdForm } = await createResponse.json();
+
+    const publishResponse = await page.request.post(
+      `/api/forms/${createdForm.id}/publish`
+    );
+    expect(publishResponse.ok()).toBeTruthy();
+    const { form: publishedForm } = await publishResponse.json();
+    const publishedField = publishedForm.schema.fields[0];
+    expect(publishedField.dataKey).toBeTruthy();
+    expect(publishedField.entityFieldId).toBeTruthy();
+
+    const staleButSafeUpdate = await page.request.put(
+      `/api/forms/${publishedForm.id}`,
+      {
+        data: {
+          appId: publishedForm.appId,
+          entityId: publishedForm.entityId,
+          name: "Governed schema QA",
+          description: "Protects record mappings",
+          schema: {
+            fields: [
+              {
+                ...createdForm.schema.fields[0],
+                label: "Governed name updated",
+              },
+            ],
+          },
+        },
+      }
+    );
+    expect(staleButSafeUpdate.ok()).toBeTruthy();
+    const { form: safelyUpdatedForm } = await staleButSafeUpdate.json();
+    expect(safelyUpdatedForm.schema.fields[0].dataKey).toBe(
+      publishedField.dataKey
+    );
+    expect(safelyUpdatedForm.schema.fields[0].entityFieldId).toBe(
+      publishedField.entityFieldId
+    );
+
+    const unsafeDataKeyUpdate = await page.request.put(
+      `/api/forms/${publishedForm.id}`,
+      {
+        data: {
+          appId: publishedForm.appId,
+          entityId: publishedForm.entityId,
+          name: "Governed schema QA",
+          description: "Protects record mappings",
+          schema: {
+            fields: [
+              {
+                ...safelyUpdatedForm.schema.fields[0],
+                dataKey: "different-record-key",
+              },
+            ],
+          },
+        },
+      }
+    );
+    expect(unsafeDataKeyUpdate.status()).toBe(409);
+    const unsafeDataKeyBody = await unsafeDataKeyUpdate.json();
+    expect(unsafeDataKeyBody.error).toContain("unsafe published field changes");
+    expect(unsafeDataKeyBody.issues[0].code).toBe("data_key_changed");
+
+    const unsafeBindingUpdate = await page.request.put(
+      `/api/forms/${publishedForm.id}`,
+      {
+        data: {
+          appId: publishedForm.appId,
+          entityId: publishedForm.entityId,
+          name: "Governed schema QA",
+          description: "Protects record mappings",
+          schema: {
+            fields: [
+              {
+                ...safelyUpdatedForm.schema.fields[0],
+                entityFieldId: "00000000-0000-0000-0000-000000000000",
+              },
+            ],
+          },
+        },
+      }
+    );
+    expect(unsafeBindingUpdate.status()).toBe(409);
+    const unsafeBindingBody = await unsafeBindingUpdate.json();
+    expect(unsafeBindingBody.issues[0].code).toBe("entity_binding_changed");
+  });
+
   test("manages form lifecycle from published to draft, archived, restored, and deleted", async ({
     page,
     request,

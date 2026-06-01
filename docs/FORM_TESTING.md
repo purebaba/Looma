@@ -10,6 +10,7 @@
 - Builder blocks publishing when checks find duplicate data keys, missing condition sources, invalid labels, or invalid option definitions.
 - Builder supports structured option editing and field default values that carry through preview, public submission, and Entity Record data.
 - Builder warns about data impact for bound/published fields and asks for confirmation before deleting fields that affect Entity Record semantics.
+- Forms API preserves published field bindings when saving from stale schemas and rejects unsafe data key or Entity Field rebinding attempts.
 - Builder preview renders configured fields.
 - Published form appears in the forms table with published status.
 - Published forms expose a same-tab fill link from the forms table and edit screen.

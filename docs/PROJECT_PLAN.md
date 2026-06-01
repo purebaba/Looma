@@ -89,6 +89,7 @@ App Runtime 面向最终业务用户，用于实际处理业务数据、任务�
 当前已补齐 Form 编辑 Record 基础：已登录且具备数据更新权限的用户可通过来源 Form 重新打开 Record，提交后更新同一条 Entity Record，同时追加 Record Version 与 Submission 审计快照。
 当前已补齐 Record 版本历史可视化基础：Studio Record 详情页展示创建/更新产生的不可变版本快照，并按字段列出每个版本相对上一版的值变化。
 当前已补齐字段数据影响提示基础：Form Builder 会标记绑定 Entity Field 或已发布字段的 Record 数据影响，并在删除这类字段前要求确认，降低误删/误改导致的业务数据语义漂移。
+当前已补齐字段映射服务端治理基础：Forms API 会从已发布版本继承旧字段的 `dataKey` 和 `entityFieldId`，并拒绝绕过前端直接修改已发布字段数据键或 Entity Field 绑定的请求。
 
 ## 3. 核心架构
 
