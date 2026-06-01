@@ -1064,6 +1064,24 @@ test.describe("Forms module", () => {
     await expect(page.getByLabel("Entity field")).toContainText(
       "Requester name · requester-name"
     );
+    await expect(page.getByTestId("field-data-impact")).toContainText(
+      "Data impact"
+    );
+    await expect(page.getByTestId("field-data-impact")).toContainText(
+      "bound to Requester name"
+    );
+    await page.getByRole("button", { name: "Delete Requester name" }).click();
+    await expect(page.getByTestId("field-delete-confirmation")).toContainText(
+      "Deleting this field changes collected data"
+    );
+    await expect(page.getByTestId("field-delete-confirmation")).toContainText(
+      "bound to Requester name"
+    );
+    await page.getByRole("button", { name: "Cancel delete" }).click();
+    await expect(page.getByTestId("field-delete-confirmation")).toHaveCount(0);
+    await expect(page.getByTestId("builder-field-text")).toContainText(
+      "Requester name"
+    );
 
     await page.getByRole("button", { name: "Preview" }).click();
     await expect(page.getByLabel("Requester name")).toBeVisible();

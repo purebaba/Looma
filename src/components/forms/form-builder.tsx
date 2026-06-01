@@ -147,8 +147,12 @@ export function FormBuilder({
   const [selectedId, setSelectedId] = useState<string | null>(
     initialForm?.schema.fields[0]?.id || null
   );
+  const [pendingDeleteFieldId, setPendingDeleteFieldId] = useState<string | null>(
+    null
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [mode, setMode] = useState<"design" | "preview">("design");
+  const hasPublishedVersion = Boolean(initialForm?.hasPublishedVersion);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -253,10 +257,24 @@ export function FormBuilder({
     );
   }
 
+  function requestDeleteField(fieldId: string) {
+    const field = fields.find((candidate) => candidate.id === fieldId);
+    if (!field) return;
+    const impact = fieldImpactSummary(field, hasPublishedVersion);
+    if (impact.requiresConfirmation) {
+      setSelectedId(fieldId);
+      setPendingDeleteFieldId(fieldId);
+      return;
+    }
+    deleteField(fieldId);
+  }
+
   function deleteField(fieldId: string) {
-    setFields((current) => current.filter((field) => field.id !== fieldId));
+    const nextFields = fields.filter((field) => field.id !== fieldId);
+    setPendingDeleteFieldId(null);
+    setFields(nextFields);
     if (selectedId === fieldId) {
-      setSelectedId(fields.find((field) => field.id !== fieldId)?.id || null);
+      setSelectedId(nextFields[0]?.id || null);
     }
   }
 
@@ -510,9 +528,13 @@ export function FormBuilder({
                         field={field}
                         fields={fields}
                         entityFields={selectedEntityFields}
+                        hasPublishedVersion={hasPublishedVersion}
+                        pendingDelete={pendingDeleteFieldId === field.id}
                         selected={field.id === selectedId}
                         onSelect={() => setSelectedId(field.id)}
-                        onDelete={() => deleteField(field.id)}
+                        onRequestDelete={() => requestDeleteField(field.id)}
+                        onCancelDelete={() => setPendingDeleteFieldId(null)}
+                        onConfirmDelete={() => deleteField(field.id)}
                       />
                     ))}
                   </div>
@@ -701,6 +723,7 @@ export function FormBuilder({
               entityFields={selectedEntityFields}
               field={selectedField}
               fields={fields}
+              hasPublishedVersion={hasPublishedVersion}
               onChange={updateField}
             />
           ) : (
@@ -732,16 +755,24 @@ function SortableField({
   field,
   fields,
   entityFields,
+  hasPublishedVersion,
+  pendingDelete,
   selected,
   onSelect,
-  onDelete,
+  onRequestDelete,
+  onCancelDelete,
+  onConfirmDelete,
 }: {
   field: FieldSchema;
   fields: FieldSchema[];
   entityFields: EntityFieldOption[];
+  hasPublishedVersion: boolean;
+  pendingDelete: boolean;
   selected: boolean;
   onSelect: () => void;
-  onDelete: () => void;
+  onRequestDelete: () => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: field.id,
@@ -755,90 +786,139 @@ function SortableField({
   );
   const dataKey = field.dataKey || slugifyFieldLabel(field.label || field.id);
   const conditionSummary = describeCondition(field.condition, fields);
+  const impact = fieldImpactSummary(field, hasPublishedVersion, boundEntityField);
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 rounded-lg border bg-card p-3 ${
+      className={`rounded-lg border bg-card p-3 ${
         selected ? "border-primary ring-1 ring-primary" : ""
       }`}
       data-testid={`builder-field-${field.type}`}
       onClick={onSelect}
     >
-      <button
-        type="button"
-        className="cursor-grab text-muted-foreground"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="size-4" />
-      </button>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate font-medium">{field.label}</p>
-          <Badge variant="secondary">{field.type}</Badge>
-        </div>
-        <p className="truncate text-xs text-muted-foreground">
-          {field.placeholder || field.helpText || "No helper text"}
-        </p>
-        <div
-          className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
-          data-testid="field-binding-summary"
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          className="cursor-grab text-muted-foreground"
+          {...attributes}
+          {...listeners}
         >
-          {boundEntityField ? (
-            <>
-              <Badge variant="outline" className="gap-1">
-                <Link2 className="size-3" />
-                Bound
-              </Badge>
-              <span className="truncate">
-                {boundEntityField.name} · {boundEntityField.slug}
-              </span>
-            </>
-          ) : field.entityFieldId ? (
-            <>
-              <Badge variant="outline" className="gap-1">
-                <Link2 className="size-3" />
-                Missing binding
-              </Badge>
-              <span className="truncate">{dataKey}</span>
-            </>
-          ) : (
-            <>
-              <Badge variant="outline" className="gap-1">
-                <Database className="size-3" />
-                Creates field
-              </Badge>
-              <span className="truncate">{dataKey}</span>
-            </>
-          )}
-        </div>
-        {conditionSummary ? (
+          <GripVertical className="size-4" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate font-medium">{field.label}</p>
+            <Badge variant="secondary">{field.type}</Badge>
+          </div>
+          <p className="truncate text-xs text-muted-foreground">
+            {field.placeholder || field.helpText || "No helper text"}
+          </p>
           <div
             className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
-            data-testid="field-condition-summary"
+            data-testid="field-binding-summary"
           >
-            <Badge variant="outline" className="gap-1">
-              <Eye className="size-3" />
-              Conditional
-            </Badge>
-            <span className="truncate">{conditionSummary}</span>
+            {boundEntityField ? (
+              <>
+                <Badge variant="outline" className="gap-1">
+                  <Link2 className="size-3" />
+                  Bound
+                </Badge>
+                <span className="truncate">
+                  {boundEntityField.name} · {boundEntityField.slug}
+                </span>
+              </>
+            ) : field.entityFieldId ? (
+              <>
+                <Badge variant="outline" className="gap-1">
+                  <Link2 className="size-3" />
+                  Missing binding
+                </Badge>
+                <span className="truncate">{dataKey}</span>
+              </>
+            ) : (
+              <>
+                <Badge variant="outline" className="gap-1">
+                  <Database className="size-3" />
+                  Creates field
+                </Badge>
+                <span className="truncate">{dataKey}</span>
+              </>
+            )}
           </div>
-        ) : null}
+          {conditionSummary ? (
+            <div
+              className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+              data-testid="field-condition-summary"
+            >
+              <Badge variant="outline" className="gap-1">
+                <Eye className="size-3" />
+                Conditional
+              </Badge>
+              <span className="truncate">{conditionSummary}</span>
+            </div>
+          ) : null}
+          {impact.level !== "none" ? (
+            <div
+              className="mt-2 flex flex-wrap items-center gap-2 text-xs text-amber-700"
+              data-testid="field-impact-summary"
+            >
+              <Badge variant="outline" className="gap-1">
+                <AlertCircle className="size-3" />
+                Data impact
+              </Badge>
+              <span className="truncate">{impact.shortMessage}</span>
+            </div>
+          ) : null}
+        </div>
+        <Badge variant="outline">{field.appearance.width}/12</Badge>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={`Delete ${field.label}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRequestDelete();
+          }}
+        >
+          <Trash2 className="size-4" />
+        </Button>
       </div>
-      <Badge variant="outline">{field.appearance.width}/12</Badge>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={(event) => {
-          event.stopPropagation();
-          onDelete();
-        }}
-      >
-        <Trash2 className="size-4" />
-      </Button>
+      {pendingDelete && impact.level !== "none" ? (
+        <div
+          className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"
+          data-testid="field-delete-confirmation"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 size-4 flex-none" />
+            <div className="grid gap-1">
+              <p className="font-medium">Deleting this field changes collected data</p>
+              <p>{impact.deleteMessage}</p>
+            </div>
+          </div>
+          <div className="mt-3 flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onCancelDelete}
+            >
+              Cancel delete
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={onConfirmDelete}
+            >
+              Confirm delete
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -847,11 +927,13 @@ function FieldProperties({
   field,
   fields,
   entityFields,
+  hasPublishedVersion,
   onChange,
 }: {
   field: FieldSchema;
   fields: FieldSchema[];
   entityFields: EntityFieldOption[];
+  hasPublishedVersion: boolean;
   onChange: (fieldId: string, patch: Partial<FieldSchema>) => void;
 }) {
   const required = field.validation.some((rule) => rule.type === "required");
@@ -871,6 +953,7 @@ function FieldProperties({
   const conditionSource = conditionFields.find(
     (candidate) => candidate.id === field.condition?.field
   );
+  const impact = fieldImpactSummary(field, hasPublishedVersion, boundEntityField);
 
   function setValidation(type: ValidationRule["type"], value: string | number | boolean) {
     let next = field.validation.filter((rule) => rule.type !== type);
@@ -1017,6 +1100,20 @@ function FieldProperties({
           </div>
         </div>
       </div>
+      {impact.level !== "none" ? (
+        <div
+          className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900"
+          data-testid="field-data-impact"
+        >
+          <div className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 size-4" />
+            <div className="grid gap-1">
+              <p className="text-sm font-medium">Data impact</p>
+              <p className="text-xs">{impact.longMessage}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-col gap-2">
         <Label htmlFor="field-entity-binding">Entity field</Label>
         <select
@@ -1566,6 +1663,50 @@ function normalizeDefaultValue(field: FieldSchema, value: unknown) {
     return Array.isArray(value) ? value.map(String) : [];
   }
   return value;
+}
+
+function fieldImpactSummary(
+  field: FieldSchema,
+  hasPublishedVersion: boolean,
+  boundEntityField?: EntityFieldOption
+) {
+  const dataKey = field.dataKey || slugifyFieldLabel(field.label || field.id);
+  const isBound = Boolean(field.entityFieldId);
+
+  if (!isBound && !hasPublishedVersion) {
+    return {
+      level: "none" as const,
+      requiresConfirmation: false,
+      shortMessage: "",
+      longMessage: "",
+      deleteMessage: "",
+    };
+  }
+
+  const bindingName = boundEntityField
+    ? `${boundEntityField.name} (${boundEntityField.slug})`
+    : `Entity data key ${dataKey}`;
+  const publishedPart = hasPublishedVersion
+    ? "This form has a live published version, so changes can affect how future responses and historical snapshots are interpreted."
+    : "";
+  const bindingPart = isBound
+    ? `This field is bound to ${bindingName}. Label or type changes update the interface, while data key changes affect where values are stored on Entity Records.`
+    : `This field has already been saved with data key ${dataKey}. Changing it can split future Record data from existing values.`;
+
+  return {
+    level: isBound ? ("high" as const) : ("medium" as const),
+    requiresConfirmation: isBound || hasPublishedVersion,
+    shortMessage: isBound
+      ? `Bound to ${bindingName}`
+      : `Published data key ${dataKey}`,
+    longMessage: [bindingPart, publishedPart].filter(Boolean).join(" "),
+    deleteMessage: [
+      isBound
+        ? `This field is bound to ${bindingName}. Deleting it removes this input from the Form but does not delete existing Record values.`
+        : `This field has been published with data key ${dataKey}. Deleting it removes this input from future submissions but existing submission and Record snapshots remain.`,
+      "Continue only if this field should no longer be collected through this Form.",
+    ].join(" "),
+  };
 }
 
 function describeCondition(
