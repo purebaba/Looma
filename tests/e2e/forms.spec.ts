@@ -305,6 +305,24 @@ test.describe("Forms module", () => {
           Object.values(submission.data).includes("Ada Byron")
       )
     ).toBeTruthy();
+
+    await page.goto(
+      `/studio/data/entities/${createdForm.entityId}/records/${adaRecord.id}`
+    );
+    await expect(page.getByText("Record version history")).toBeVisible();
+    const versionTwoRow = page
+      .getByRole("row")
+      .filter({ hasText: "Version 2" });
+    await expect(versionTwoRow).toContainText("Full name");
+    await expect(versionTwoRow).toContainText("Ada Lovelace");
+    await expect(versionTwoRow).toContainText("Ada Byron");
+    await expect(versionTwoRow).toContainText("Lead source");
+    await expect(versionTwoRow).toContainText("referral");
+    await expect(versionTwoRow).toContainText("website");
+    const versionOneRow = page
+      .getByRole("row")
+      .filter({ hasText: "Version 1" });
+    await expect(versionOneRow).toContainText("Ada Lovelace");
   });
 
   test("blocks invalid public submissions with schema validation", async ({
@@ -954,8 +972,13 @@ test.describe("Forms module", () => {
       /\/studio\/data\/entities\/[0-9a-f-]+\/records\/[0-9a-f-]+$/
     );
     await expect(page.getByRole("heading", { name: "Asset QA record" })).toBeVisible();
-    await expect(page.getByText("Laptop A")).toBeVisible();
-    await expect(page.getByText("2400")).toBeVisible();
+    const currentValues = page.getByTestId("record-current-values");
+    await expect(
+      currentValues.getByRole("row").filter({ hasText: "Asset name" })
+    ).toContainText("Laptop A");
+    await expect(
+      currentValues.getByRole("row").filter({ hasText: "Asset value" })
+    ).toContainText("2400");
 
     const records = await page.request.get(`/api/entities/${entityId}/records`);
     expect(records.ok()).toBeTruthy();

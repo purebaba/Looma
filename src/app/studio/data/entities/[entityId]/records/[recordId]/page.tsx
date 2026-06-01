@@ -20,6 +20,7 @@ import {
   entities,
   entityFields,
   entityRecords,
+  entityRecordVersions,
   forms,
   formSubmissions,
   formVersions,
@@ -33,6 +34,47 @@ function formatValue(value: unknown) {
   if (value === undefined || value === null || value === "") return "-";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
+}
+
+function formatDate(value: Date | null) {
+  return value
+    ? new Intl.DateTimeFormat("en", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(value)
+    : "Unknown";
+}
+
+function isSameValue(left: unknown, right: unknown) {
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+}
+
+function describeVersionChanges({
+  current,
+  previous,
+  fields,
+}: {
+  current: Record<string, unknown>;
+  previous?: Record<string, unknown>;
+  fields: Array<{ name: string; slug: string }>;
+}) {
+  if (!previous) {
+    return fields
+      .filter((field) => current[field.slug] !== undefined)
+      .map((field) => ({
+        field: field.name,
+        before: null,
+        after: current[field.slug],
+      }));
+  }
+
+  return fields
+    .filter((field) => !isSameValue(previous[field.slug], current[field.slug]))
+    .map((field) => ({
+      field: field.name,
+      before: previous[field.slug],
+      after: current[field.slug],
+    }));
 }
 
 export default async function RecordDetailPage({
@@ -79,24 +121,47 @@ export default async function RecordDetailPage({
   }
 
   const data = record.data as Record<string, unknown>;
-  const sourceSubmissions = await db
-    .select({
-      id: formSubmissions.id,
-      createdAt: formSubmissions.createdAt,
-      formId: formSubmissions.formId,
-      formName: forms.name,
-      formVersion: formVersions.version,
-    })
-    .from(formSubmissions)
-    .innerJoin(forms, eq(forms.id, formSubmissions.formId))
-    .leftJoin(formVersions, eq(formVersions.id, formSubmissions.formVersionId))
-    .where(
-      and(
-        eq(formSubmissions.entityRecordId, record.id),
-        eq(forms.orgId, current.organization.id)
+  const [sourceSubmissions, recordVersions] = await Promise.all([
+    db
+      .select({
+        id: formSubmissions.id,
+        createdAt: formSubmissions.createdAt,
+        formId: formSubmissions.formId,
+        formName: forms.name,
+        formVersion: formVersions.version,
+      })
+      .from(formSubmissions)
+      .innerJoin(forms, eq(forms.id, formSubmissions.formId))
+      .leftJoin(formVersions, eq(formVersions.id, formSubmissions.formVersionId))
+      .where(
+        and(
+          eq(formSubmissions.entityRecordId, record.id),
+          eq(forms.orgId, current.organization.id)
+        )
       )
-    )
-    .orderBy(desc(formSubmissions.createdAt));
+      .orderBy(desc(formSubmissions.createdAt)),
+    db
+      .select()
+      .from(entityRecordVersions)
+      .where(eq(entityRecordVersions.recordId, record.id))
+      .orderBy(asc(entityRecordVersions.version)),
+  ]);
+  const versionSummaries = recordVersions
+    .map((version, index) => {
+      const previous = recordVersions[index - 1]?.data as
+        | Record<string, unknown>
+        | undefined;
+      const currentData = version.data as Record<string, unknown>;
+      return {
+        ...version,
+        changes: describeVersionChanges({
+          current: currentData,
+          previous,
+          fields,
+        }),
+      };
+    })
+    .reverse();
 
   return (
     <div className="flex flex-col gap-6">
@@ -130,7 +195,7 @@ export default async function RecordDetailPage({
           <CardTitle>Current values</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <Table data-testid="record-current-values">
             <TableBody>
               {fields.map((field) => (
                 <TableRow key={field.id}>
@@ -171,12 +236,7 @@ export default async function RecordDetailPage({
                       {submission.formVersion ? `v${submission.formVersion}` : "-"}
                     </TableCell>
                     <TableCell>
-                      {submission.createdAt
-                        ? new Intl.DateTimeFormat("en", {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                          }).format(submission.createdAt)
-                        : "Unknown"}
+                      {formatDate(submission.createdAt)}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button asChild size="sm" variant="outline">
@@ -195,6 +255,67 @@ export default async function RecordDetailPage({
           ) : (
             <p className="p-4 text-sm text-muted-foreground">
               This record was created manually or has no linked form submission.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Record version history</CardTitle>
+          <CardDescription>
+            Immutable snapshots created when this record is created or updated.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          {versionSummaries.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Version</TableHead>
+                  <TableHead>Changed at</TableHead>
+                  <TableHead>Changed values</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {versionSummaries.map((version) => (
+                  <TableRow key={version.id}>
+                    <TableCell className="font-medium">
+                      Version {version.version}
+                    </TableCell>
+                    <TableCell>{formatDate(version.createdAt)}</TableCell>
+                    <TableCell>
+                      {version.changes.length ? (
+                        <div className="grid gap-1">
+                          {version.changes.map((change) => (
+                            <div key={`${version.id}-${change.field}`}>
+                              <span className="font-medium">{change.field}: </span>
+                              {change.before !== null &&
+                              change.before !== undefined ? (
+                                <>
+                                  <span className="text-muted-foreground">
+                                    {formatValue(change.before)}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    {" -> "}
+                                  </span>
+                                </>
+                              ) : null}
+                              <span>{formatValue(change.after)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">No data changes</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="p-4 text-sm text-muted-foreground">
+              No version snapshots have been recorded for this record.
             </p>
           )}
         </CardContent>
