@@ -296,6 +296,7 @@ export const formSubmissions = pgTable("form_submissions", {
     onDelete: "set null",
   }),
   data: jsonb("data").notNull(),
+  status: varchar("status", { length: 50 }).default("active"),
   submittedBy: uuid("submitted_by").references(() => users.id),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),

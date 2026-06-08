@@ -198,7 +198,7 @@ test.describe("Forms module", () => {
     await page.getByLabel("Search").fill("Ada");
     await page.getByRole("button", { name: "Apply" }).click();
     await expect(page).toHaveURL(/q=Ada/);
-    await expect(page.getByText("Filtered from 2 total submissions.")).toBeVisible();
+    await expect(page.getByText("Filtered from 2 active responses.")).toBeVisible();
     await expect(
       page.getByRole("cell", { name: "Ada Lovelace", exact: true })
     ).toBeVisible();
@@ -290,6 +290,53 @@ test.describe("Forms module", () => {
     expect(selectedSubmissionCsv).not.toContain("Bob Stone");
     expect(selectedSubmissionCsv).not.toContain(bobSubmission.id);
     expect(selectedSubmissionCsv).not.toContain("ada@example.com");
+
+    const archiveSubmission = await page.request.patch(
+      `/api/forms/${formId}/submissions/${adaSubmission.id}`,
+      { data: { status: "archived" } }
+    );
+    expect(archiveSubmission.ok()).toBeTruthy();
+    const archivedSubmissionBody = await archiveSubmission.json();
+    expect(archivedSubmissionBody.submission.status).toBe("archived");
+
+    await page.goto(`/studio/interfaces/forms/${formId}/submissions`);
+    await expect(
+      page.getByRole("cell", { name: "Bob Stone", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Ada Lovelace", exact: true })
+    ).not.toBeVisible();
+
+    await page.goto(`/studio/interfaces/forms/${formId}/submissions?status=archived`);
+    await expect(page.getByText("Showing archived responses.")).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Ada Lovelace", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Bob Stone", exact: true })
+    ).not.toBeVisible();
+    await expect(page.getByRole("button", { name: "Restore" })).toBeVisible();
+
+    const archivedExport = await page.request.get(
+      `/api/forms/${formId}/submissions/export?status=archived`
+    );
+    expect(archivedExport.ok()).toBeTruthy();
+    const archivedCsv = await archivedExport.text();
+    expect(archivedCsv).toContain("Ada Lovelace");
+    expect(archivedCsv).not.toContain("Bob Stone");
+
+    const restoreSubmission = await page.request.patch(
+      `/api/forms/${formId}/submissions/${adaSubmission.id}`,
+      { data: { status: "active" } }
+    );
+    expect(restoreSubmission.ok()).toBeTruthy();
+    const restoredSubmissionBody = await restoreSubmission.json();
+    expect(restoredSubmissionBody.submission.status).toBe("active");
+
+    await page.goto(`/studio/interfaces/forms/${formId}/submissions`);
+    await expect(
+      page.getByRole("cell", { name: "Ada Lovelace", exact: true })
+    ).toBeVisible();
 
     await page.goto(`/studio/data/entities/${createdForm.entityId}/records`);
     await expect(

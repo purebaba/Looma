@@ -8,6 +8,7 @@ import { formSubmissions, formVersions, forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
 import {
   filterSubmissions,
+  filterSubmissionsByStatus,
   sortSubmissions,
   submissionsToCsv,
 } from "@/lib/forms/submissions";
@@ -53,13 +54,14 @@ export async function GET(
       ? formVersionSchema(publishedVersion)
       : (form.schema as FormSchema);
     const sort = searchParams.get("sort") === "asc" ? "asc" : "desc";
+    const status = searchParams.get("status");
     const exportFieldIds = searchParams.getAll("exportField");
     const selectedSubmissionIds = searchParams.getAll("submissionId");
     const selectedSubmissionSet = new Set(selectedSubmissionIds);
     const filteredSubmissions = sortSubmissions(
       filterSubmissions({
         schema,
-        submissions,
+        submissions: filterSubmissionsByStatus(submissions, status),
         query: searchParams.get("q"),
         fieldId: searchParams.get("fieldId"),
         fieldValue: searchParams.get("fieldValue"),

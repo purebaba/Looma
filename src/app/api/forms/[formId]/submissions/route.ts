@@ -5,9 +5,10 @@ import { routeError } from "@/lib/api/responses";
 import { requireResourceAccess } from "@/lib/auth/organization";
 import { db } from "@/lib/db/client";
 import { formSubmissions, forms } from "@/lib/db/schema";
+import { filterSubmissionsByStatus } from "@/lib/forms/submissions";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ formId: string }> }
 ) {
   try {
@@ -25,7 +26,12 @@ export async function GET(
       .where(eq(formSubmissions.formId, formId))
       .orderBy(desc(formSubmissions.createdAt));
 
-    return NextResponse.json({ submissions });
+    const status = new URL(request.url).searchParams.get("status");
+    const visibleSubmissions = status
+      ? filterSubmissionsByStatus(submissions, status)
+      : submissions;
+
+    return NextResponse.json({ submissions: visibleSubmissions });
   } catch (error) {
     return routeError(error);
   }

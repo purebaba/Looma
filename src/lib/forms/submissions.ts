@@ -4,6 +4,7 @@ type SubmissionLike = {
   id: string;
   formVersionId?: string | null;
   entityRecordId?: string | null;
+  status?: string | null;
   data: unknown;
   createdAt?: Date | string | null;
 };
@@ -153,6 +154,21 @@ export function submissionsToCsv({
   return [header, ...rows]
     .map((row) => row.map((value) => csvEscape(value)).join(","))
     .join("\n");
+}
+
+export function submissionStatus(submission: SubmissionLike) {
+  return submission.status === "archived" ? "archived" : "active";
+}
+
+export function filterSubmissionsByStatus<T extends SubmissionLike>(
+  submissions: T[],
+  status?: string | null
+) {
+  const normalizedStatus = status === "archived" || status === "all" ? status : "active";
+  if (normalizedStatus === "all") return submissions;
+  return submissions.filter(
+    (submission) => submissionStatus(submission) === normalizedStatus
+  );
 }
 
 export function filterSubmissions<T extends SubmissionLike>({

@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { ArrowLeft, Database } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -17,7 +18,11 @@ import { requireResourceAccess } from "@/lib/auth/organization";
 import { db } from "@/lib/db/client";
 import { formSubmissions, forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
-import { formatSubmissionValue, submissionFields } from "@/lib/forms/submissions";
+import {
+  formatSubmissionValue,
+  submissionFields,
+  submissionStatus,
+} from "@/lib/forms/submissions";
 import {
   formVersionSchema,
   getSubmissionFormVersion,
@@ -135,6 +140,18 @@ export default async function FormSubmissionDetailPage({
             <div>
               <p className="text-muted-foreground">Submission ID</p>
               <p className="break-all font-mono text-xs">{submission.id}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Status</p>
+              <Badge
+                variant={
+                  submissionStatus(submission) === "archived"
+                    ? "secondary"
+                    : "default"
+                }
+              >
+                {submissionStatus(submission)}
+              </Badge>
             </div>
             <div>
               <p className="text-muted-foreground">Submitted at</p>

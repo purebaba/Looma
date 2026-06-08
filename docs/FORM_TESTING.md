@@ -14,6 +14,7 @@
 - Form configuration shows draft-vs-published field diffs before publishing a new version.
 - Responses CSV export can be scoped to selected form fields while preserving active search/filter/sort parameters.
 - Responses CSV export can be scoped to selected response rows through repeated `submissionId` parameters.
+- Responses can be archived, hidden from the default active list, reviewed in the archived view, restored, and exported with the active status filter applied.
 - Builder preview renders configured fields.
 - Published form appears in the forms table with published status.
 - Published forms expose a same-tab fill link from the forms table and edit screen.

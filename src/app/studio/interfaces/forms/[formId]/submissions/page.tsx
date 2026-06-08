@@ -2,8 +2,10 @@ import Link from "next/link";
 import { and, desc, eq } from "drizzle-orm";
 import { ArrowLeft, Download, Eye, Inbox } from "lucide-react";
 
+import { SubmissionLifecycleActions } from "@/components/forms/submission-lifecycle-actions";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,10 +24,12 @@ import { formSubmissions, formVersions, forms } from "@/lib/db/schema";
 import type { FormSchema } from "@/lib/forms/field-schema";
 import {
   filterSubmissions,
+  filterSubmissionsByStatus,
   formatSubmissionValue,
   formatSubmissionSnapshot,
   sortSubmissions,
   submissionFields,
+  submissionStatus,
   versionLabelForSubmission,
 } from "@/lib/forms/submissions";
 import {
@@ -44,6 +48,7 @@ export default async function FormSubmissionsPage({
     q?: string;
     fieldId?: string;
     fieldValue?: string;
+    status?: string;
     sort?: string;
     exportField?: string | string[];
   }>;
@@ -80,16 +85,21 @@ export default async function FormSubmissionsPage({
     .where(eq(formVersions.formId, form.id));
   const versionsById = new Map(versions.map((version) => [version.id, version]));
   const sort = filters.sort === "asc" ? "asc" : "desc";
+  const status =
+    filters.status === "archived" || filters.status === "all"
+      ? filters.status
+      : "active";
   const selectedExportFieldIds = Array.isArray(filters.exportField)
     ? filters.exportField
     : filters.exportField
       ? [filters.exportField]
       : [];
   const selectedExportFields = new Set(selectedExportFieldIds);
+  const statusSubmissions = filterSubmissionsByStatus(submissions, status);
   const filteredSubmissions = sortSubmissions(
     filterSubmissions({
       schema,
-      submissions,
+      submissions: statusSubmissions,
       query: filters.q,
       fieldId: filters.fieldId,
       fieldValue: filters.fieldValue,
@@ -102,6 +112,7 @@ export default async function FormSubmissionsPage({
   if (filters.q) exportParams.set("q", filters.q);
   if (filters.fieldId) exportParams.set("fieldId", filters.fieldId);
   if (filters.fieldValue) exportParams.set("fieldValue", filters.fieldValue);
+  exportParams.set("status", status);
   if (filters.sort) exportParams.set("sort", sort);
   selectedExportFieldIds.forEach((fieldId) =>
     exportParams.append("exportField", fieldId)
@@ -167,12 +178,14 @@ export default async function FormSubmissionsPage({
             <div>
               <CardTitle>{filteredSubmissions.length} responses</CardTitle>
               <CardDescription>
-                {filteredSubmissions.length === submissions.length
-                  ? "Latest submissions are shown first."
-                  : `Filtered from ${submissions.length} total submissions.`}
+                {filteredSubmissions.length === statusSubmissions.length
+                  ? status === "all"
+                    ? "Latest submissions are shown first."
+                    : `Showing ${status} responses.`
+                  : `Filtered from ${statusSubmissions.length} ${status} responses.`}
               </CardDescription>
             </div>
-            <form className="grid gap-3 rounded-md border bg-muted/30 p-3 lg:grid-cols-[minmax(180px,1fr)_180px_minmax(180px,1fr)_120px_auto]">
+            <form className="grid gap-3 rounded-md border bg-muted/30 p-3 lg:grid-cols-[minmax(180px,1fr)_180px_minmax(180px,1fr)_150px_120px_auto]">
               <div className="grid gap-2">
                 <Label htmlFor="response-search">Search</Label>
                 <Input
@@ -208,6 +221,19 @@ export default async function FormSubmissionsPage({
                 />
               </div>
               <div className="grid gap-2">
+                <Label htmlFor="response-status">Status</Label>
+                <select
+                  id="response-status"
+                  name="status"
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  defaultValue={status}
+                >
+                  <option value="active">Active</option>
+                  <option value="archived">Archived</option>
+                  <option value="all">All</option>
+                </select>
+              </div>
+              <div className="grid gap-2">
                 <Label htmlFor="response-sort">Sort</Label>
                 <select
                   id="response-sort"
@@ -227,7 +253,7 @@ export default async function FormSubmissionsPage({
                   </Link>
                 </Button>
               </div>
-              <div className="grid gap-2 lg:col-span-5">
+              <div className="grid gap-2 lg:col-span-6">
                 <Label>Export fields</Label>
                 <div className="flex flex-wrap gap-3 rounded-md border bg-background p-3 text-sm">
                   {fields.map((field) => (
@@ -277,6 +303,7 @@ export default async function FormSubmissionsPage({
                     value={filters.fieldValue}
                   />
                 ) : null}
+                <input type="hidden" name="status" value={status} />
                 <input type="hidden" name="sort" value={sort} />
                 {selectedExportFieldIds.map((fieldId) => (
                   <input
@@ -301,6 +328,7 @@ export default async function FormSubmissionsPage({
                       <TableHead>Select</TableHead>
                       <TableHead>Submitted</TableHead>
                       <TableHead>Version</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>Record</TableHead>
                       <TableHead>Submitted values</TableHead>
                       {fields.map((field) => (
@@ -333,6 +361,17 @@ export default async function FormSubmissionsPage({
                           <TableCell>
                             {versionLabelForSubmission({ submission, versionsById })}
                           </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                submissionStatus(submission) === "archived"
+                                  ? "secondary"
+                                  : "default"
+                              }
+                            >
+                              {submissionStatus(submission)}
+                            </Badge>
+                          </TableCell>
                           <TableCell className="font-mono text-xs">
                             {submission.entityRecordId
                               ? submission.entityRecordId.slice(0, 8)
@@ -351,7 +390,7 @@ export default async function FormSubmissionsPage({
                             </TableCell>
                           ))}
                           <TableCell>
-                            <div className="flex justify-end">
+                            <div className="flex justify-end gap-2">
                               <Button asChild variant="outline" size="sm">
                                 <Link
                                   href={`/studio/interfaces/forms/${form.id}/submissions/${submission.id}`}
@@ -360,6 +399,11 @@ export default async function FormSubmissionsPage({
                                   View
                                 </Link>
                               </Button>
+                              <SubmissionLifecycleActions
+                                formId={form.id}
+                                submissionId={submission.id}
+                                status={submission.status}
+                              />
                             </div>
                           </TableCell>
                         </TableRow>
