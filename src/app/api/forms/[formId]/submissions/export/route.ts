@@ -54,6 +54,8 @@ export async function GET(
       : (form.schema as FormSchema);
     const sort = searchParams.get("sort") === "asc" ? "asc" : "desc";
     const exportFieldIds = searchParams.getAll("exportField");
+    const selectedSubmissionIds = searchParams.getAll("submissionId");
+    const selectedSubmissionSet = new Set(selectedSubmissionIds);
     const filteredSubmissions = sortSubmissions(
       filterSubmissions({
         schema,
@@ -64,6 +66,9 @@ export async function GET(
         versionsById,
       }),
       sort
+    ).filter(
+      (submission) =>
+        selectedSubmissionSet.size === 0 || selectedSubmissionSet.has(submission.id)
     );
 
     const csv = submissionsToCsv({

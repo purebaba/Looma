@@ -265,69 +265,109 @@ export default async function FormSubmissionsPage({
             </CardContent>
           ) : (
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Submitted</TableHead>
-                    <TableHead>Version</TableHead>
-                    <TableHead>Record</TableHead>
-                    <TableHead>Submitted values</TableHead>
-                    {fields.map((field) => (
-                      <TableHead key={field.id}>{field.label}</TableHead>
-                    ))}
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredSubmissions.map((submission) => {
-                    const data = submission.data as Record<string, unknown>;
-                    return (
-                      <TableRow key={submission.id}>
-                        <TableCell className="whitespace-nowrap">
-                          {submission.createdAt
-                            ? new Intl.DateTimeFormat("en", {
-                                dateStyle: "medium",
-                                timeStyle: "short",
-                              }).format(submission.createdAt)
-                            : "Unknown"}
-                        </TableCell>
-                        <TableCell>
-                          {versionLabelForSubmission({ submission, versionsById })}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {submission.entityRecordId
-                            ? submission.entityRecordId.slice(0, 8)
-                            : "-"}
-                        </TableCell>
-                        <TableCell className="min-w-64 text-xs text-muted-foreground">
-                          {formatSubmissionSnapshot({
-                            fallbackSchema: schema,
-                            submission,
-                            versionsById,
-                          })}
-                        </TableCell>
-                        {fields.map((field) => (
-                          <TableCell key={field.id}>
-                            {formatSubmissionValue(data[field.id])}
+              <form action={`/api/forms/${form.id}/submissions/export`}>
+                {filters.q ? <input type="hidden" name="q" value={filters.q} /> : null}
+                {filters.fieldId ? (
+                  <input type="hidden" name="fieldId" value={filters.fieldId} />
+                ) : null}
+                {filters.fieldValue ? (
+                  <input
+                    type="hidden"
+                    name="fieldValue"
+                    value={filters.fieldValue}
+                  />
+                ) : null}
+                <input type="hidden" name="sort" value={sort} />
+                {selectedExportFieldIds.map((fieldId) => (
+                  <input
+                    key={fieldId}
+                    type="hidden"
+                    name="exportField"
+                    value={fieldId}
+                  />
+                ))}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
+                  <p className="text-sm text-muted-foreground">
+                    Select rows below, or leave blank to export the filtered set.
+                  </p>
+                  <Button type="submit" variant="outline" size="sm">
+                    <Download className="size-4" />
+                    Export selected CSV
+                  </Button>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Select</TableHead>
+                      <TableHead>Submitted</TableHead>
+                      <TableHead>Version</TableHead>
+                      <TableHead>Record</TableHead>
+                      <TableHead>Submitted values</TableHead>
+                      {fields.map((field) => (
+                        <TableHead key={field.id}>{field.label}</TableHead>
+                      ))}
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSubmissions.map((submission) => {
+                      const data = submission.data as Record<string, unknown>;
+                      return (
+                        <TableRow key={submission.id}>
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              name="submissionId"
+                              value={submission.id}
+                              aria-label={`Select response ${submission.id.slice(0, 8)}`}
+                            />
                           </TableCell>
-                        ))}
-                        <TableCell>
-                          <div className="flex justify-end">
-                            <Button asChild variant="outline" size="sm">
-                              <Link
-                                href={`/studio/interfaces/forms/${form.id}/submissions/${submission.id}`}
-                              >
-                                <Eye className="size-4" />
-                                View
-                              </Link>
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                          <TableCell className="whitespace-nowrap">
+                            {submission.createdAt
+                              ? new Intl.DateTimeFormat("en", {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                }).format(submission.createdAt)
+                              : "Unknown"}
+                          </TableCell>
+                          <TableCell>
+                            {versionLabelForSubmission({ submission, versionsById })}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {submission.entityRecordId
+                              ? submission.entityRecordId.slice(0, 8)
+                              : "-"}
+                          </TableCell>
+                          <TableCell className="min-w-64 text-xs text-muted-foreground">
+                            {formatSubmissionSnapshot({
+                              fallbackSchema: schema,
+                              submission,
+                              versionsById,
+                            })}
+                          </TableCell>
+                          {fields.map((field) => (
+                            <TableCell key={field.id}>
+                              {formatSubmissionValue(data[field.id])}
+                            </TableCell>
+                          ))}
+                          <TableCell>
+                            <div className="flex justify-end">
+                              <Button asChild variant="outline" size="sm">
+                                <Link
+                                  href={`/studio/interfaces/forms/${form.id}/submissions/${submission.id}`}
+                                >
+                                  <Eye className="size-4" />
+                                  View
+                                </Link>
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </form>
             </CardContent>
           )}
         </Card>

@@ -141,7 +141,11 @@ test.describe("Forms module", () => {
     const adaSubmission = body.submissions.find((submission: { data: Record<string, unknown> }) =>
       Object.values(submission.data).includes("Ada Lovelace")
     ) as { id: string; entityRecordId: string; data: Record<string, unknown> };
+    const bobSubmission = body.submissions.find((submission: { data: Record<string, unknown> }) =>
+      Object.values(submission.data).includes("Bob Stone")
+    ) as { id: string; entityRecordId: string; data: Record<string, unknown> };
     expect(adaSubmission).toBeTruthy();
+    expect(bobSubmission).toBeTruthy();
     expect(adaSubmission.entityRecordId).toBeTruthy();
     expect(Object.values(adaSubmission.data)).toEqual(
       expect.arrayContaining(["Ada Lovelace", "ada@example.com", "referral"])
@@ -217,6 +221,9 @@ test.describe("Forms module", () => {
     ).not.toBeVisible();
     await page.getByRole("link", { name: "Reset" }).click();
     await expect(page.getByRole("link", { name: "Export CSV" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Export selected CSV" })
+    ).toBeVisible();
     await page
       .getByRole("row")
       .filter({ hasText: "Ada Lovelace" })
@@ -273,6 +280,16 @@ test.describe("Forms module", () => {
     expect(selectedCsv).not.toContain("ada@example.com");
     expect(selectedCsv).not.toContain("Lead source");
     expect(selectedCsv).not.toContain("referral");
+
+    const selectedSubmissionExport = await page.request.get(
+      `/api/forms/${formId}/submissions/export?submissionId=${adaSubmission.id}&exportField=${fullNameField.id}`
+    );
+    expect(selectedSubmissionExport.ok()).toBeTruthy();
+    const selectedSubmissionCsv = await selectedSubmissionExport.text();
+    expect(selectedSubmissionCsv).toContain("Ada Lovelace");
+    expect(selectedSubmissionCsv).not.toContain("Bob Stone");
+    expect(selectedSubmissionCsv).not.toContain(bobSubmission.id);
+    expect(selectedSubmissionCsv).not.toContain("ada@example.com");
 
     await page.goto(`/studio/data/entities/${createdForm.entityId}/records`);
     await expect(
