@@ -53,6 +53,7 @@ export async function GET(
       ? formVersionSchema(publishedVersion)
       : (form.schema as FormSchema);
     const sort = searchParams.get("sort") === "asc" ? "asc" : "desc";
+    const exportFieldIds = searchParams.getAll("exportField");
     const filteredSubmissions = sortSubmissions(
       filterSubmissions({
         schema,
@@ -69,6 +70,7 @@ export async function GET(
       schema,
       submissions: filteredSubmissions,
       versionsById,
+      fieldIds: exportFieldIds,
     });
 
     return new NextResponse(csv, {

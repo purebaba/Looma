@@ -12,6 +12,7 @@
 - Builder warns about data impact for bound/published fields and asks for confirmation before deleting fields that affect Entity Record semantics.
 - Forms API preserves published field bindings when saving from stale schemas and rejects unsafe data key or Entity Field rebinding attempts.
 - Form configuration shows draft-vs-published field diffs before publishing a new version.
+- Responses CSV export can be scoped to selected form fields while preserving active search/filter/sort parameters.
 - Builder preview renders configured fields.
 - Published form appears in the forms table with published status.
 - Published forms expose a same-tab fill link from the forms table and edit screen.

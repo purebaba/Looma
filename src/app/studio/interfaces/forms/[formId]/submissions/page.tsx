@@ -45,6 +45,7 @@ export default async function FormSubmissionsPage({
     fieldId?: string;
     fieldValue?: string;
     sort?: string;
+    exportField?: string | string[];
   }>;
 }) {
   const { formId } = await params;
@@ -79,6 +80,12 @@ export default async function FormSubmissionsPage({
     .where(eq(formVersions.formId, form.id));
   const versionsById = new Map(versions.map((version) => [version.id, version]));
   const sort = filters.sort === "asc" ? "asc" : "desc";
+  const selectedExportFieldIds = Array.isArray(filters.exportField)
+    ? filters.exportField
+    : filters.exportField
+      ? [filters.exportField]
+      : [];
+  const selectedExportFields = new Set(selectedExportFieldIds);
   const filteredSubmissions = sortSubmissions(
     filterSubmissions({
       schema,
@@ -96,6 +103,9 @@ export default async function FormSubmissionsPage({
   if (filters.fieldId) exportParams.set("fieldId", filters.fieldId);
   if (filters.fieldValue) exportParams.set("fieldValue", filters.fieldValue);
   if (filters.sort) exportParams.set("sort", sort);
+  selectedExportFieldIds.forEach((fieldId) =>
+    exportParams.append("exportField", fieldId)
+  );
   const exportHref = `/api/forms/${form.id}/submissions/export${
     exportParams.toString() ? `?${exportParams.toString()}` : ""
   }`;
@@ -216,6 +226,25 @@ export default async function FormSubmissionsPage({
                     Reset
                   </Link>
                 </Button>
+              </div>
+              <div className="grid gap-2 lg:col-span-5">
+                <Label>Export fields</Label>
+                <div className="flex flex-wrap gap-3 rounded-md border bg-background p-3 text-sm">
+                  {fields.map((field) => (
+                    <label key={field.id} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        name="exportField"
+                        value={field.id}
+                        defaultChecked={
+                          selectedExportFieldIds.length === 0 ||
+                          selectedExportFields.has(field.id)
+                        }
+                      />
+                      <span>{field.label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
             </form>
           </CardHeader>

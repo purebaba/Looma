@@ -156,6 +156,10 @@ test.describe("Forms module", () => {
     expect(createdForm.appId).toBeTruthy();
     expect(createdForm.entityId).toBeTruthy();
     expect(createdForm.entityName).toBe("Customer intake QA");
+    const fullNameField = createdForm.schema.fields.find(
+      (field: { label: string }) => field.label === "Full name"
+    );
+    expect(fullNameField).toBeTruthy();
 
     const records = await page.request.get(
       `/api/entities/${createdForm.entityId}/records`
@@ -257,6 +261,18 @@ test.describe("Forms module", () => {
     expect(csv).toContain("Ada Lovelace");
     expect(csv).toContain("ada@example.com");
     expect(csv).not.toContain("Bob Stone");
+
+    const selectedExportResponse = await page.request.get(
+      `/api/forms/${formId}/submissions/export?q=Ada&exportField=${fullNameField.id}`
+    );
+    expect(selectedExportResponse.ok()).toBeTruthy();
+    const selectedCsv = await selectedExportResponse.text();
+    expect(selectedCsv).toContain("Full name");
+    expect(selectedCsv).toContain("Ada Lovelace");
+    expect(selectedCsv).not.toContain("Email address");
+    expect(selectedCsv).not.toContain("ada@example.com");
+    expect(selectedCsv).not.toContain("Lead source");
+    expect(selectedCsv).not.toContain("referral");
 
     await page.goto(`/studio/data/entities/${createdForm.entityId}/records`);
     await expect(

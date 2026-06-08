@@ -20,6 +20,13 @@ export function submissionFields(schema: FormSchema) {
   return schema.fields.filter((field) => field.type !== "divider");
 }
 
+export function selectSubmissionFields(schema: FormSchema, fieldIds?: string[]) {
+  const fields = submissionFields(schema);
+  if (!fieldIds?.length) return fields;
+  const selected = new Set(fieldIds);
+  return fields.filter((field) => selected.has(field.id));
+}
+
 export function formatSubmissionValue(value: unknown) {
   if (Array.isArray(value)) return value.join(", ");
   if (typeof value === "boolean") return value ? "Yes" : "No";
@@ -68,14 +75,16 @@ export function submissionSnapshotValues({
   fallbackSchema,
   submission,
   versionsById,
+  fieldIds,
 }: {
   fallbackSchema: FormSchema;
   submission: SubmissionLike;
   versionsById?: VersionMap;
+  fieldIds?: string[];
 }) {
   const schema = schemaForSubmission({ fallbackSchema, submission, versionsById });
   const data = (submission.data || {}) as Record<string, unknown>;
-  return submissionFields(schema).map((field) => ({
+  return selectSubmissionFields(schema, fieldIds).map((field) => ({
     field,
     value: data[field.id],
     text: `${field.label}: ${formatSubmissionValue(data[field.id])}`,
@@ -86,15 +95,18 @@ export function formatSubmissionSnapshot({
   fallbackSchema,
   submission,
   versionsById,
+  fieldIds,
 }: {
   fallbackSchema: FormSchema;
   submission: SubmissionLike;
   versionsById?: VersionMap;
+  fieldIds?: string[];
 }) {
   return submissionSnapshotValues({
     fallbackSchema,
     submission,
     versionsById,
+    fieldIds,
   })
     .map((item) => item.text)
     .join("; ");
@@ -104,12 +116,14 @@ export function submissionsToCsv({
   schema,
   submissions,
   versionsById,
+  fieldIds,
 }: {
   schema: FormSchema;
   submissions: SubmissionLike[];
   versionsById?: VersionMap;
+  fieldIds?: string[];
 }) {
-  const fields = submissionFields(schema);
+  const fields = selectSubmissionFields(schema, fieldIds);
   const header = [
     "Submission ID",
     "Submitted At",
@@ -130,6 +144,7 @@ export function submissionsToCsv({
         fallbackSchema: schema,
         submission,
         versionsById,
+        fieldIds,
       }),
       ...fields.map((field) => data[field.id]),
     ];
