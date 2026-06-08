@@ -2,6 +2,7 @@ import Link from "next/link";
 import { and, desc, eq } from "drizzle-orm";
 import { ArrowLeft, Download, Eye, Inbox } from "lucide-react";
 
+import { SubmissionBulkActions } from "@/components/forms/submission-bulk-actions";
 import { SubmissionLifecycleActions } from "@/components/forms/submission-lifecycle-actions";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -120,6 +121,7 @@ export default async function FormSubmissionsPage({
   const exportHref = `/api/forms/${form.id}/submissions/export${
     exportParams.toString() ? `?${exportParams.toString()}` : ""
   }`;
+  const selectionFormId = `response-selection-${form.id}`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -291,7 +293,10 @@ export default async function FormSubmissionsPage({
             </CardContent>
           ) : (
             <CardContent className="p-0">
-              <form action={`/api/forms/${form.id}/submissions/export`}>
+              <form
+                id={selectionFormId}
+                action={`/api/forms/${form.id}/submissions/export`}
+              >
                 {filters.q ? <input type="hidden" name="q" value={filters.q} /> : null}
                 {filters.fieldId ? (
                   <input type="hidden" name="fieldId" value={filters.fieldId} />
@@ -317,10 +322,17 @@ export default async function FormSubmissionsPage({
                   <p className="text-sm text-muted-foreground">
                     Select rows below, or leave blank to export the filtered set.
                   </p>
-                  <Button type="submit" variant="outline" size="sm">
-                    <Download className="size-4" />
-                    Export selected CSV
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <SubmissionBulkActions
+                      formId={form.id}
+                      formDomId={selectionFormId}
+                      status={status}
+                    />
+                    <Button type="submit" variant="outline" size="sm">
+                      <Download className="size-4" />
+                      Export selected CSV
+                    </Button>
+                  </div>
                 </div>
                 <Table>
                   <TableHeader>

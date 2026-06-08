@@ -315,7 +315,9 @@ test.describe("Forms module", () => {
     await expect(
       page.getByRole("cell", { name: "Bob Stone", exact: true })
     ).not.toBeVisible();
-    await expect(page.getByRole("button", { name: "Restore" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Restore", exact: true })
+    ).toBeVisible();
 
     const archivedExport = await page.request.get(
       `/api/forms/${formId}/submissions/export?status=archived`
@@ -336,6 +338,59 @@ test.describe("Forms module", () => {
     await page.goto(`/studio/interfaces/forms/${formId}/submissions`);
     await expect(
       page.getByRole("cell", { name: "Ada Lovelace", exact: true })
+    ).toBeVisible();
+
+    await page
+      .getByRole("row")
+      .filter({ hasText: "Ada Lovelace" })
+      .getByRole("checkbox")
+      .check();
+    await page
+      .getByRole("row")
+      .filter({ hasText: "Bob Stone" })
+      .getByRole("checkbox")
+      .check();
+    await page.getByRole("button", { name: "Archive selected" }).click();
+    await expect(page.getByText("Responses archived", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Ada Lovelace", exact: true })
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Bob Stone", exact: true })
+    ).not.toBeVisible();
+
+    await page.goto(`/studio/interfaces/forms/${formId}/submissions?status=archived`);
+    await expect(
+      page.getByRole("cell", { name: "Ada Lovelace", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Bob Stone", exact: true })
+    ).toBeVisible();
+    await page
+      .getByRole("row")
+      .filter({ hasText: "Ada Lovelace" })
+      .getByRole("checkbox")
+      .check();
+    await page
+      .getByRole("row")
+      .filter({ hasText: "Bob Stone" })
+      .getByRole("checkbox")
+      .check();
+    await page.getByRole("button", { name: "Restore selected" }).click();
+    await expect(page.getByText("Responses restored", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Ada Lovelace", exact: true })
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Bob Stone", exact: true })
+    ).not.toBeVisible();
+
+    await page.goto(`/studio/interfaces/forms/${formId}/submissions`);
+    await expect(
+      page.getByRole("cell", { name: "Ada Lovelace", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Bob Stone", exact: true })
     ).toBeVisible();
 
     await page.goto(`/studio/data/entities/${createdForm.entityId}/records`);
