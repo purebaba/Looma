@@ -1,17 +1,20 @@
 # Dependencies
-/node_modules
-/.pnp
+node_modules
+.pnp
 .pnp.js
 
 # Testing
-/coverage
+coverage
+playwright-report
+test-results
 
 # Next.js
-/.next/
-/out/
+.next
+out
 
 # Production
-/build
+build
+dist
 
 # Misc
 .DS_Store
@@ -37,7 +40,7 @@ yarn-error.log*
 next-env.d.ts
 
 # Drizzle
-/drizzle
+drizzle
 *.sql
 *.sql.gz
 
