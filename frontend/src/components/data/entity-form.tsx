@@ -207,7 +207,7 @@ export function EntityForm({
           {fields.map((field, index) => (
             <div
               key={index}
-              className="grid gap-3 rounded-md border p-3 lg:grid-cols-[1fr_1fr_150px_72px_72px_44px]"
+              className="grid gap-3 rounded-md border p-3 lg:grid-cols-[1fr_1fr_130px_130px_64px_64px_44px]"
             >
               <div className="grid gap-2">
                 <Label htmlFor={`field-name-${index}`}>Name</Label>
@@ -262,7 +262,7 @@ export function EntityForm({
                       })
                     }
                   >
-                    <option value="">Select entity...</option>
+                    <option value="">Select...</option>
                     {entities
                       .filter((e) => e.id !== initialEntity?.id)
                       .map((e) => (
@@ -272,7 +272,8 @@ export function EntityForm({
                       ))}
                   </select>
                 </div>
-              ) : null}
+              ) : (
+                <div />)}
               <label className="flex items-end gap-2 pb-2 text-sm">
                 <input
                   type="checkbox"
